@@ -1,0 +1,29 @@
+name: Create Template Branches
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-orphan-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set Git user identity
+        run: |
+          git config --global user.name "EaseCloud"
+          git config --global user.email "admin@easecloud.io"
+
+      - name: Create template branches
+        run: |
+          git remote set-url origin "https://x-access-token:$GITHUB_TOKEN@github.com/${{ github.repository }}.git"
+          branches=("staging" "production")
+          for branch in "${branches[@]}"; do
+            git checkout --orphan "${branch}"
+            git rm -rf . || true
+            git commit --allow-empty -m "init: ${branch} branch"
+            git push origin "${branch}"
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
