@@ -11,7 +11,7 @@ resource "oci_file_storage_file_system" "this" {
 resource "oci_file_storage_mount_target" "this" {
   compartment_id      = local.env.oci.compartment_ocid
   availability_domain = data.oci_identity_availability_domains.this.availability_domains[0].name
-  subnet_id           = oci_core_subnet.public[0].id
+  subnet_id           = oci_core_subnet.private[0].id
   display_name        = "${local.project}-mount-target"
   nsg_ids             = [oci_core_network_security_group.nfs.id]
   freeform_tags       = local.default_tags
