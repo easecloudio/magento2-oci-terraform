@@ -31,7 +31,7 @@ resource "oci_file_storage_export" "this" {
   export_options {
     source                         = local.env.vcn.cidr_block
     access                         = "READ_WRITE"
-    identity_squash                = "NONE"
+    identity_squash                = "ROOT"
     require_privileged_source_port = false
   }
 }
