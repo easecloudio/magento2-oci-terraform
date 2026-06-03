@@ -7,6 +7,10 @@ resource "oci_kms_vault" "this" {
   display_name   = "${local.project}-vault"
   vault_type     = "DEFAULT"
   freeform_tags  = local.default_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "oci_kms_key" "this" {
@@ -18,6 +22,10 @@ resource "oci_kms_key" "this" {
   key_shape {
     algorithm = "AES"
     length    = 32
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 }
 
