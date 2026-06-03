@@ -65,18 +65,17 @@ resource "oci_load_balancer_listener" "imgproxy" {
   protocol                 = "HTTP"
 }
 
-# HTTPS listener (port 443) requires certificate resources from dns.tf/tls.tf.
-# Wire in after those files are added:
-#
-# resource "oci_load_balancer_listener" "https" {
-#   load_balancer_id         = oci_load_balancer_load_balancer.this.id
-#   name                     = "https-listener"
-#   default_backend_set_name = oci_load_balancer_backend_set.varnish.name
-#   port                     = 443
-#   protocol                 = "HTTP"
-#
-#   ssl_configuration {
-#     certificate_name        = oci_load_balancer_certificate.this.certificate_name
-#     verify_peer_certificate = false
-#   }
-# }
+resource "oci_load_balancer_listener" "https" {
+  count = length(oci_load_balancer_certificate.this) > 0 ? 1 : 0
+
+  load_balancer_id         = oci_load_balancer_load_balancer.this.id
+  name                     = "https-listener"
+  default_backend_set_name = oci_load_balancer_backend_set.varnish.name
+  port                     = 443
+  protocol                 = "HTTP"
+
+  ssl_configuration {
+    certificate_name        = oci_load_balancer_certificate.this[0].certificate_name
+    verify_peer_certificate = false
+  }
+}
