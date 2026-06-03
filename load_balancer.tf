@@ -77,5 +77,7 @@ resource "oci_load_balancer_listener" "https" {
   ssl_configuration {
     certificate_name        = oci_load_balancer_certificate.this[0].certificate_name
     verify_peer_certificate = false
+    protocols               = ["TLSv1.2", "TLSv1.3"]
+    cipher_suite_name       = "oci-default-http2-tls-13-ssl-cipher-suite-v1"
   }
 }
