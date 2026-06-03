@@ -22,18 +22,15 @@ resource "oci_waf_web_app_firewall_policy" "this" {
     }
   }
 
-  request_protection {
-    rules {
-      name                       = "block-restricted-countries"
-      type                       = "PROTECTION"
-      action_name                = "GEO_BLOCK"
-      is_body_inspection_enabled = false
-      condition                  = "i_contains(keys(http.request.headers), 'x-country') && i_contains(['${join("', '", local.env.waf.restricted_countries)}'], http.request.headers['x-country'][0])"
+  request_access_control {
+    default_action_name = "ALLOW"
 
-      protection_capabilities {
-        key     = "9300000"
-        version = 1
-      }
+    rules {
+      name               = "block-restricted-countries"
+      type               = "ACCESS_CONTROL"
+      action_name        = "GEO_BLOCK"
+      condition          = "i_contains(['${join("', '", local.env.waf.restricted_countries)}'], http.request.geolocation.country_code)"
+      condition_language = "JMESPATH"
     }
   }
 }
