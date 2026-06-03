@@ -19,8 +19,8 @@ resource "oci_events_rule" "release_deploy" {
   condition = jsonencode({
     eventType = ["com.oraclecloud.objectstorage.createobject"]
     data = {
-      resourceName = ["${local.project}-system"]
       additionalDetails = {
+        bucketName    = ["${local.project}-system"]
         namespaceName = [data.oci_objectstorage_namespace.this.namespace]
       }
     }
