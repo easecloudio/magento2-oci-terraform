@@ -58,3 +58,38 @@ resource "oci_core_dhcp_options" "this" {
     search_domain_names = ["${local.env.vcn.dns_label}.oraclevcn.com"]
   }
 }
+
+resource "oci_core_nat_gateway" "this" {
+  compartment_id = local.env.oci.compartment_ocid
+  vcn_id         = oci_core_vcn.this.id
+  display_name   = "${local.project}-ngw"
+  freeform_tags  = local.default_tags
+}
+
+resource "oci_core_route_table" "private" {
+  compartment_id = local.env.oci.compartment_ocid
+  vcn_id         = oci_core_vcn.this.id
+  display_name   = "${local.project}-private-rt"
+  freeform_tags  = local.default_tags
+
+  route_rules {
+    network_entity_id = oci_core_nat_gateway.this.id
+    destination       = "0.0.0.0/0"
+    destination_type  = "CIDR_BLOCK"
+  }
+}
+
+resource "oci_core_subnet" "private" {
+  count = local.env.vcn.availability_domains_qty
+
+  compartment_id             = local.env.oci.compartment_ocid
+  vcn_id                     = oci_core_vcn.this.id
+  cidr_block                 = cidrsubnet(local.env.vcn.cidr_block, 4, count.index + 8)
+  availability_domain        = data.oci_identity_availability_domains.this.availability_domains[count.index].name
+  display_name               = "${local.project}-private-subnet-${count.index}"
+  dns_label                  = "pvtsubnet${count.index}"
+  prohibit_public_ip_on_vnic = true
+  security_list_ids          = [oci_core_vcn.this.default_security_list_id]
+  route_table_id             = oci_core_route_table.private.id
+  freeform_tags              = local.default_tags
+}
