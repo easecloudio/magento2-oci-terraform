@@ -1,6 +1,6 @@
 #cloud-config
 package_update: true
-package_upgrade: false
+package_upgrade: true
 
 packages:
   - jq
@@ -11,22 +11,18 @@ packages:
 
 runcmd:
   - |
-    # Set hostname
     hostnamectl set-hostname frontend.${brand}.internal
     echo "127.0.0.1 frontend.${brand}.internal" >> /etc/hosts
 
   - |
-    # Install OCI CLI
     curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh | bash -s -- --accept-all-defaults
 
   - |
-    # Install Ansible via pipx
     pip3 install pipx --quiet
-    pipx install ansible-core
-    pipx ensurepath
+    /usr/local/bin/pipx install ansible-core
+    export PATH="$PATH:/root/.local/bin"
 
   - |
-    # Register instance in OCI private DNS via OCI CLI (instance principal auth)
     PRIVATE_IP=$(curl -H "Authorization: Bearer Oracle" -L http://169.254.169.254/opc/v2/instance/metadata/privateIp 2>/dev/null || true)
     echo "Instance IP: $PRIVATE_IP" >> /var/log/cloud-init-custom.log
 

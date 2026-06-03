@@ -9,11 +9,14 @@ resource "oci_core_instance_pool" "this" {
   display_name              = "${local.project}-${each.key}-pool"
   freeform_tags             = local.default_tags
 
-  placement_configurations {
-    availability_domain = data.oci_identity_availability_domains.this.availability_domains[0].name
-    primary_subnet_id   = oci_core_subnet.public[0].id
-    primary_vnic_subnets {
-      subnet_id = oci_core_subnet.public[0].id
+  dynamic "placement_configurations" {
+    for_each = range(local.env.vcn.availability_domains_qty)
+    content {
+      availability_domain = data.oci_identity_availability_domains.this.availability_domains[placement_configurations.value].name
+      primary_subnet_id   = oci_core_subnet.private[placement_configurations.value].id
+      primary_vnic_subnets {
+        subnet_id = oci_core_subnet.private[placement_configurations.value].id
+      }
     }
   }
 

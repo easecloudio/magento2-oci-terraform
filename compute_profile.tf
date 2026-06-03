@@ -33,9 +33,9 @@ resource "oci_core_instance_configuration" "this" {
       }
 
       create_vnic_details {
-        assign_public_ip = true
+        assign_public_ip = false
         nsg_ids          = [oci_core_network_security_group.compute.id]
-        subnet_id        = oci_core_subnet.public[0].id
+        subnet_id        = oci_core_subnet.private[0].id
       }
 
       freeform_tags = local.default_tags

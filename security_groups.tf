@@ -202,3 +202,49 @@ resource "oci_core_network_security_group_security_rule" "nfs_egress_all" {
   destination               = "0.0.0.0/0"
   destination_type          = "CIDR_BLOCK"
 }
+
+# # ---------------------------------------------------------------------------------------------------------------------#
+# OpenSearch NSG — allows 9200/9300 from compute only
+# # ---------------------------------------------------------------------------------------------------------------------#
+resource "oci_core_network_security_group" "opensearch" {
+  compartment_id = local.env.oci.compartment_ocid
+  vcn_id         = oci_core_vcn.this.id
+  display_name   = "${local.project}-opensearch-nsg"
+  freeform_tags  = local.default_tags
+}
+
+resource "oci_core_network_security_group_security_rule" "opensearch_ingress_api" {
+  network_security_group_id = oci_core_network_security_group.opensearch.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = oci_core_network_security_group.compute.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+  tcp_options {
+    destination_port_range {
+      min = 9200
+      max = 9200
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "opensearch_ingress_cluster" {
+  network_security_group_id = oci_core_network_security_group.opensearch.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = oci_core_network_security_group.opensearch.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+  tcp_options {
+    destination_port_range {
+      min = 9300
+      max = 9300
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "opensearch_egress_all" {
+  network_security_group_id = oci_core_network_security_group.opensearch.id
+  direction                 = "EGRESS"
+  protocol                  = "all"
+  destination               = "0.0.0.0/0"
+  destination_type          = "CIDR_BLOCK"
+}

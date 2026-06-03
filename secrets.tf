@@ -7,6 +7,10 @@ resource "oci_kms_vault" "this" {
   display_name   = "${local.project}-vault"
   vault_type     = "DEFAULT"
   freeform_tags  = local.default_tags
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "oci_kms_key" "this" {
@@ -19,11 +23,15 @@ resource "oci_kms_key" "this" {
     algorithm = "AES"
     length    = 32
   }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 locals {
   secrets = {
-    MARIADB_PASSWORD    = random_password.this["database"].result
+    MYSQL_PASSWORD      = random_password.this["database"].result
     REDIS_PASSWORD      = random_password.this["redis"].result
     OPENSEARCH_PASSWORD = random_password.this["opensearch"].result
     OPENSEARCH_ADMIN    = random_string.this["opensearch_admin"].result
