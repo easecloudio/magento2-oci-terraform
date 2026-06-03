@@ -11,7 +11,7 @@ resource "oci_load_balancer_load_balancer" "this" {
     maximum_bandwidth_in_mbps = 100
   }
 
-  subnet_ids                 = [oci_core_subnet.public[0].id]
+  subnet_ids                 = oci_core_subnet.public[*].id
   is_private                 = false
   network_security_group_ids = [oci_core_network_security_group.lb.id]
   freeform_tags              = local.default_tags
