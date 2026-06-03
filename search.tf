@@ -22,6 +22,5 @@ resource "oci_opensearch_opensearch_cluster" "this" {
   vcn_compartment_id                 = local.env.oci.compartment_ocid
   vcn_id                             = oci_core_vcn.this.id
   subnet_id                          = oci_core_subnet.private[0].id
-  nsg_id                             = oci_core_network_security_group.opensearch.id
   freeform_tags                      = local.default_tags
 }

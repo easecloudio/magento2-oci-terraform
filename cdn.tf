@@ -10,5 +10,5 @@
 # Reference: https://docs.oracle.com/en-us/iaas/Content/CDN/home.htm
 
 locals {
-  cdn_note = "OCI CDN origin: ${oci_load_balancer_load_balancer.this.ip_addresses[0].ip_address}"
+  cdn_note = "OCI CDN origin: ${oci_load_balancer_load_balancer.this.ip_address_details[0].ip_address}"
 }

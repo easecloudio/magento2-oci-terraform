@@ -4,7 +4,7 @@
 
 output "load_balancer_ip" {
   description = "Public IP address of the OCI Load Balancer"
-  value       = oci_load_balancer_load_balancer.this.ip_addresses[0].ip_address
+  value       = oci_load_balancer_load_balancer.this.ip_address_details[0].ip_address
 }
 
 output "mysql_endpoint" {
