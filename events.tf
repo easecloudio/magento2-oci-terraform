@@ -34,3 +34,11 @@ resource "oci_events_rule" "release_deploy" {
     }
   }
 }
+
+resource "oci_ons_subscription" "admin_email" {
+  compartment_id = local.env.oci.compartment_ocid
+  topic_id       = oci_ons_notification_topic.default.id
+  protocol       = "EMAIL"
+  endpoint       = local.env.admin_email
+  freeform_tags  = local.default_tags
+}
