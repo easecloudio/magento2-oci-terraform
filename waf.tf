@@ -38,6 +38,22 @@ resource "oci_waf_web_app_firewall_policy" "this" {
     }
   }
 
+  actions {
+    name = "ADMIN_BLOCK"
+    type = "RETURN_HTTP_RESPONSE"
+    code = 403
+
+    headers {
+      name  = "X-WAF-Block"
+      value = "admin"
+    }
+
+    body {
+      type = "STATIC_TEXT"
+      text = "Access denied"
+    }
+  }
+
   request_rate_limiting {
     rules {
       name               = "rate-limit-per-ip"
@@ -54,6 +70,20 @@ resource "oci_waf_web_app_firewall_policy" "this" {
         action_duration_in_seconds = local.env.waf.rate_limit.action_duration_in_seconds
       }
     }
+
+    rules {
+      name               = "rate-limit-admin-path"
+      type               = "REQUEST_RATE_LIMITING"
+      action_name        = "RATE_LIMIT"
+      condition          = "i_starts_with(http.request.url.path, '/${random_string.this["admin_path"].result}')"
+      condition_language = "JMESPATH"
+
+      configurations {
+        period_in_seconds          = local.env.waf.admin_rate_limit.period_in_seconds
+        requests_limit             = local.env.waf.admin_rate_limit.requests_limit
+        action_duration_in_seconds = local.env.waf.admin_rate_limit.action_duration_in_seconds
+      }
+    }
   }
 
   request_access_control {
@@ -65,6 +95,17 @@ resource "oci_waf_web_app_firewall_policy" "this" {
       action_name        = "GEO_BLOCK"
       condition          = "i_contains(['${join("', '", local.env.waf.restricted_countries)}'], http.request.geolocation.country_code)"
       condition_language = "JMESPATH"
+    }
+
+    dynamic "rules" {
+      for_each = length(local.env.waf.admin_allowed_cidrs) > 0 ? [1] : []
+      content {
+        name               = "restrict-admin-path"
+        type               = "ACCESS_CONTROL"
+        action_name        = "ADMIN_BLOCK"
+        condition          = "i_starts_with(http.request.url.path, '/${random_string.this["admin_path"].result}') && length(${jsonencode(local.env.waf.admin_allowed_cidrs)}) > 0 && !i_contains(${jsonencode(local.env.waf.admin_allowed_cidrs)}, http.request.ip)"
+        condition_language = "JMESPATH"
+      }
     }
   }
 }

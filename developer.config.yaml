@@ -101,6 +101,10 @@ waf:
     period_in_seconds: 60
     action_duration_in_seconds: 60
   admin_allowed_cidrs: []
+  admin_rate_limit:
+    requests_limit: 20
+    period_in_seconds: 60
+    action_duration_in_seconds: 300
 
 password:
   - "database"
