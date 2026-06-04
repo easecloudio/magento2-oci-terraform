@@ -49,6 +49,7 @@ mysql:
     - { name: "wait_timeout",                   value: "7200" }
     - { name: "interactive_timeout",            value: "7200" }
     - { name: "innodb_lock_wait_timeout",       value: "60" }
+    # innodb_flush_log_at_trx_commit is not exposed by the OCI provider — set it via MySQL CLI after provisioning
     - { name: "innodb_flush_log_at_trx_commit", value: "2" }
 
 redis:

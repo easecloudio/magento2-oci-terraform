@@ -9,10 +9,15 @@ resource "oci_mysql_mysql_configuration" "this" {
   freeform_tags  = local.default_tags
 
   variables {
-    max_allowed_packet       = tonumber(local.mysql_params["max_allowed_packet"])
-    wait_timeout             = tonumber(local.mysql_params["wait_timeout"])
-    interactive_timeout      = tonumber(local.mysql_params["interactive_timeout"])
-    innodb_lock_wait_timeout = tonumber(local.mysql_params["innodb_lock_wait_timeout"])
+    max_allowed_packet       = tonumber(lookup(local.mysql_params, "max_allowed_packet", "268435456"))
+    wait_timeout             = tonumber(lookup(local.mysql_params, "wait_timeout", "7200"))
+    interactive_timeout      = tonumber(lookup(local.mysql_params, "interactive_timeout", "7200"))
+    innodb_lock_wait_timeout = tonumber(lookup(local.mysql_params, "innodb_lock_wait_timeout", "60"))
+    # innodb_flush_log_at_trx_commit is not exposed by the OCI provider variables block
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
 
@@ -28,6 +33,7 @@ resource "oci_mysql_mysql_db_system" "this" {
   mysql_version           = local.env.mysql.engine_version
   hostname_label          = "${local.project}-mysql"
   configuration_id        = oci_mysql_mysql_configuration.this.id
+  # WARNING: disabling HA on a running production cluster will remove the standby replica
   is_highly_available     = local.environment == "production"
 
   backup_policy {
