@@ -23,3 +23,9 @@ data "oci_core_images" "this" {
 data "oci_objectstorage_namespace" "this" {
   compartment_id = local.env.oci.compartment_ocid
 }
+
+# Resolve the NFS mount target OCID to an actual private IP address.
+# oci_file_storage_mount_target.private_ip_ids returns a list of private IP OCIDs.
+data "oci_core_private_ip" "nfs_mount_target" {
+  private_ip_id = oci_file_storage_mount_target.this.private_ip_ids[0]
+}

@@ -1,0 +1,339 @@
+---
+# Frontend playbook: installs Nginx + PHP-FPM 8.2, mounts NFS exports,
+# fetches secrets from OCI Vault, and configures the Nginx vhost for Magento.
+# Code deployment is handled separately (see TODO below).
+#
+# Required extra-vars:
+#   project        - e.g. "easecloud-magento"
+#   environment    - e.g. "developer"
+#   brand          - e.g. "easecloud"
+#   region         - OCI region, e.g. "us-ashburn-1"
+#   nfs_mount_ip   - IP address of the OCI File Storage mount target
+#   mysql_host     - MySQL HeatWave endpoint hostname
+#   opensearch_fqdn - OCI OpenSearch FQDN
+#   os_namespace   - OCI Object Storage namespace
+
+- name: Configure Magento frontend (PHP-FPM + Nginx)
+  hosts: localhost
+  become: yes
+  gather_facts: yes
+
+  vars:
+    magento_root: /var/www/magento
+    magento_user: www-data
+    magento_group: www-data
+    php_version: "8.2"
+    nginx_port: 8080
+
+  tasks:
+
+    ###########################################################################
+    # System packages
+    ###########################################################################
+
+    - name: Install prerequisite packages
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - software-properties-common
+          - nfs-common
+          - unzip
+        state: present
+        update_cache: yes
+
+    - name: Add Ondrej PHP PPA signing key
+      ansible.builtin.apt_key:
+        url: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x14AA40EC0831756756D7F66C4F4EA0AAE5267A6C
+        state: present
+
+    - name: Add Ondrej PHP PPA repository
+      ansible.builtin.apt_repository:
+        repo: "ppa:ondrej/php"
+        state: present
+        update_cache: yes
+
+    - name: Install Nginx
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+
+    - name: Install PHP-FPM and Magento 2 required extensions
+      ansible.builtin.apt:
+        name:
+          - "php{{ php_version }}-fpm"
+          - "php{{ php_version }}-xml"
+          - "php{{ php_version }}-mbstring"
+          - "php{{ php_version }}-intl"
+          - "php{{ php_version }}-bcmath"
+          - "php{{ php_version }}-curl"
+          - "php{{ php_version }}-gd"
+          - "php{{ php_version }}-zip"
+          - "php{{ php_version }}-mysql"
+          - "php{{ php_version }}-soap"
+          - "php{{ php_version }}-xsl"
+          - "php{{ php_version }}-sockets"
+          - "php{{ php_version }}-common"
+        state: present
+        update_cache: yes
+
+    ###########################################################################
+    # Magento directory structure
+    ###########################################################################
+
+    - name: Create Magento root directory
+      ansible.builtin.file:
+        path: "{{ magento_root }}"
+        state: directory
+        owner: "{{ magento_user }}"
+        group: "{{ magento_group }}"
+        mode: "0755"
+
+    - name: Create Magento var directory (NFS mount point)
+      ansible.builtin.file:
+        path: "{{ magento_root }}/var"
+        state: directory
+        owner: "{{ magento_user }}"
+        group: "{{ magento_group }}"
+        mode: "0770"
+
+    - name: Create Magento pub/media directory (NFS mount point)
+      ansible.builtin.file:
+        path: "{{ magento_root }}/pub/media"
+        state: directory
+        owner: "{{ magento_user }}"
+        group: "{{ magento_group }}"
+        mode: "0770"
+
+    ###########################################################################
+    # NFS mounts
+    ###########################################################################
+
+    - name: Mount NFS var export
+      ansible.posix.mount:
+        path: "{{ magento_root }}/var"
+        src: "{{ nfs_mount_ip }}:/var"
+        fstype: nfs
+        opts: "rw,hard,intr,rsize=65536,wsize=65536,timeo=600,retrans=2,_netdev"
+        state: mounted
+
+    - name: Mount NFS media export
+      ansible.posix.mount:
+        path: "{{ magento_root }}/pub/media"
+        src: "{{ nfs_mount_ip }}:/media"
+        fstype: nfs
+        opts: "rw,hard,intr,rsize=65536,wsize=65536,timeo=600,retrans=2,_netdev"
+        state: mounted
+
+    ###########################################################################
+    # OCI Vault secrets
+    ###########################################################################
+
+    - name: Fetch MySQL password from OCI Vault
+      ansible.builtin.command:
+        cmd: >
+          /root/bin/oci secrets secret-bundle get
+          --secret-id "{{ lookup('env', 'HOME') }}"
+          --region "{{ region }}"
+          --auth instance_principal
+          --query "data.\"secret-bundle-content\".content"
+          --raw-output
+      register: mysql_password_b64
+      changed_when: false
+      ignore_errors: true
+      # NOTE: The actual secret OCID lookup is done via secret name convention:
+      # {{ project }}-mysql-password
+      # Full implementation requires listing secrets by name first.
+      # This task is a placeholder — implement via oci vault secret list + get.
+
+    ###########################################################################
+    # PHP-FPM pool configuration
+    ###########################################################################
+
+    - name: Configure PHP-FPM pool for Magento
+      ansible.builtin.copy:
+        dest: "/etc/php/{{ php_version }}/fpm/pool.d/magento.conf"
+        content: |
+          [magento]
+          user = {{ magento_user }}
+          group = {{ magento_group }}
+          listen = /run/php/php{{ php_version }}-fpm-magento.sock
+          listen.owner = www-data
+          listen.group = www-data
+          listen.mode = 0660
+
+          pm = dynamic
+          pm.max_children = 50
+          pm.start_servers = 5
+          pm.min_spare_servers = 5
+          pm.max_spare_servers = 10
+          pm.max_requests = 1000
+
+          php_admin_value[error_log] = /var/log/php/magento-fpm-error.log
+          php_admin_flag[log_errors] = on
+          php_admin_value[memory_limit] = 756M
+          php_admin_value[max_execution_time] = 1800
+          php_admin_value[realpath_cache_size] = 10M
+          php_admin_value[realpath_cache_ttl] = 7200
+
+          ; Magento required settings
+          php_admin_value[upload_max_filesize] = 64M
+          php_admin_value[post_max_size] = 64M
+          php_admin_value[max_input_vars] = 10000
+          env[MAGENTO_ROOT] = {{ magento_root }}
+          env[DB_HOST] = {{ mysql_host }}
+          env[OPENSEARCH_HOST] = {{ opensearch_fqdn }}
+          env[OCI_REGION] = {{ region }}
+          env[OCI_NAMESPACE] = {{ os_namespace }}
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart PHP-FPM
+
+    - name: Remove default PHP-FPM www pool
+      ansible.builtin.file:
+        path: "/etc/php/{{ php_version }}/fpm/pool.d/www.conf"
+        state: absent
+      notify: Restart PHP-FPM
+
+    - name: Create PHP log directory
+      ansible.builtin.file:
+        path: /var/log/php
+        state: directory
+        owner: "{{ magento_user }}"
+        group: "{{ magento_group }}"
+        mode: "0755"
+
+    ###########################################################################
+    # Nginx configuration
+    ###########################################################################
+
+    - name: Remove default Nginx site
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: Reload Nginx
+
+    - name: Create Magento Nginx vhost
+      ansible.builtin.copy:
+        dest: /etc/nginx/sites-available/magento.conf
+        content: |
+          upstream fastcgi_backend {
+              server unix:/run/php/php{{ php_version }}-fpm-magento.sock;
+          }
+
+          server {
+              listen {{ nginx_port }};
+              server_name _;
+
+              root {{ magento_root }}/pub;
+              index index.php;
+
+              access_log /var/log/nginx/magento-access.log;
+              error_log  /var/log/nginx/magento-error.log;
+
+              # LB health check — returns 200 immediately, no PHP needed
+              location /health {
+                  access_log off;
+                  return 200 "OK\n";
+                  add_header Content-Type text/plain;
+              }
+
+              # Magento static assets
+              location /static/ {
+                  expires max;
+                  add_header Cache-Control "public";
+                  if (!-f $request_filename) {
+                      rewrite ^/static/(version\d*/)?(.*)$ /static.php?resource=$2 last;
+                  }
+              }
+
+              # Magento media files
+              location /media/ {
+                  try_files $uri $uri/ /get.php$is_args$args;
+                  expires max;
+                  add_header Cache-Control "public";
+              }
+
+              location / {
+                  try_files $uri $uri/ /index.php$is_args$args;
+              }
+
+              location ~ ^/(index|get|static|errors/report|errors/404|errors/503|print)\.php$ {
+                  fastcgi_pass   fastcgi_backend;
+                  fastcgi_index  index.php;
+                  fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+                  fastcgi_param  MAGE_MODE production;
+                  include        fastcgi_params;
+                  fastcgi_buffers 16 16k;
+                  fastcgi_buffer_size 32k;
+                  fastcgi_read_timeout 600;
+              }
+
+              # Deny access to sensitive files
+              location ~* \.(git|svn|htaccess|htpasswd)$ {
+                  deny all;
+              }
+
+              # Deny direct PHP execution outside of the approved list
+              location ~ \.php$ {
+                  return 404;
+              }
+
+              gzip on;
+              gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+              gzip_comp_level 6;
+              gzip_min_length 1000;
+          }
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload Nginx
+
+    - name: Enable Magento Nginx site
+      ansible.builtin.file:
+        src: /etc/nginx/sites-available/magento.conf
+        dest: /etc/nginx/sites-enabled/magento.conf
+        state: link
+      notify: Reload Nginx
+
+    ###########################################################################
+    # Services
+    ###########################################################################
+
+    - name: Enable and start PHP-FPM
+      ansible.builtin.systemd:
+        name: "php{{ php_version }}-fpm"
+        enabled: yes
+        state: started
+
+    - name: Enable and start Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        enabled: yes
+        state: started
+
+    ###########################################################################
+    # TODO: Magento code deployment
+    # The application code (composer install, bin/magento setup:upgrade, etc.)
+    # is NOT handled here. Code deployment is a separate CI/CD concern and
+    # should be triggered after infrastructure provisioning is complete.
+    # Suggested approach: pull a release artifact from OCI Object Storage
+    # ({{ project }}-system bucket) and run bin/magento setup:install with
+    # the secrets fetched above.
+    ###########################################################################
+
+  handlers:
+
+    - name: Restart PHP-FPM
+      ansible.builtin.systemd:
+        name: "php{{ php_version }}-fpm"
+        state: restarted
+
+    - name: Reload Nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded

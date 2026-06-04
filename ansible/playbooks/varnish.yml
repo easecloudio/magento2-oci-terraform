@@ -1,0 +1,245 @@
+---
+# Varnish playbook: writes a Magento-compatible VCL and configures Varnish
+# to listen on port 80 with the frontend pool as the backend.
+#
+# Required extra-vars:
+#   project     - e.g. "easecloud-magento"
+#   environment - e.g. "developer"
+#   brand       - e.g. "easecloud"
+#   region      - OCI region, e.g. "us-ashburn-1"
+
+- name: Configure Varnish cache tier
+  hosts: localhost
+  become: yes
+  gather_facts: yes
+
+  vars:
+    varnish_port: 80
+    backend_host: "frontend.{{ brand }}.internal"
+    backend_port: 8080
+
+  tasks:
+
+    ###########################################################################
+    # Varnish VCL
+    ###########################################################################
+
+    - name: Write Magento-compatible VCL
+      ansible.builtin.copy:
+        dest: /etc/varnish/default.vcl
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          vcl 4.1;
+
+          import std;
+
+          # Backend: the frontend instance pool, resolved via internal DNS
+          backend default {
+              .host = "{{ backend_host }}";
+              .port = "{{ backend_port }}";
+              .first_byte_timeout     = 600s;
+              .connect_timeout        = 5s;
+              .between_bytes_timeout  = 600s;
+
+              # Health probe — the LB health check also uses this endpoint
+              .probe = {
+                  .url    = "/health";
+                  .timeout = 5s;
+                  .interval = 10s;
+                  .window  = 5;
+                  .threshold = 3;
+              }
+          }
+
+          ###################################################################
+          # ACL for cache purge requests (restrict to localhost and VCN)
+          ###################################################################
+          acl purge {
+              "localhost";
+              "127.0.0.1";
+              "172.35.0.0/16";
+          }
+
+          ###################################################################
+          # vcl_recv — decide what to cache, what to pass, and handle purges
+          ###################################################################
+          sub vcl_recv {
+
+              # Purge handler (called by Magento cache invalidation)
+              if (req.method == "PURGE") {
+                  if (!client.ip ~ purge) {
+                      return(synth(405, "Not allowed"));
+                  }
+                  return(purge);
+              }
+
+              # Ban by X-Magento-Tags-Pattern (full-page cache tag invalidation)
+              if (req.method == "BAN") {
+                  if (!client.ip ~ purge) {
+                      return(synth(405, "Not allowed"));
+                  }
+                  if (req.http.X-Magento-Tags-Pattern) {
+                      ban("obj.http.X-Magento-Tags ~ " + req.http.X-Magento-Tags-Pattern);
+                  }
+                  return(synth(200, "Banned"));
+              }
+
+              # Only cache GET and HEAD; pass everything else
+              if (req.method != "GET" && req.method != "HEAD") {
+                  return(pass);
+              }
+
+              # Do not cache requests with Authorization header
+              if (req.http.Authorization) {
+                  return(pass);
+              }
+
+              # Strip cookies for static assets so they can be cached
+              if (req.url ~ "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|otf|webp|avif)(\?.*)?$") {
+                  unset req.http.Cookie;
+                  return(hash);
+              }
+
+              # Pass if the request carries Magento session / form-key cookies
+              if (req.http.Cookie) {
+                  if (req.http.Cookie ~ "PHPSESSID|mage-cache-sessid|mage-cache-storage|X-Magento-Vary|form_key|private_content_version") {
+                      return(pass);
+                  }
+                  # Strip non-essential cookies before hashing
+                  set req.http.Cookie = regsuball(req.http.Cookie, ";\s*", "; ");
+              }
+
+              return(hash);
+          }
+
+          ###################################################################
+          # vcl_hash — add Accept-Encoding and X-Forwarded-Proto to the hash
+          ###################################################################
+          sub vcl_hash {
+              hash_data(req.url);
+              if (req.http.host) {
+                  hash_data(req.http.host);
+              } else {
+                  hash_data(server.ip);
+              }
+              if (req.http.X-Forwarded-Proto) {
+                  hash_data(req.http.X-Forwarded-Proto);
+              }
+          }
+
+          ###################################################################
+          # vcl_backend_response — set TTL and strip Set-Cookie for cached objects
+          ###################################################################
+          sub vcl_backend_response {
+              # Strip Set-Cookie for static assets
+              if (bereq.url ~ "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|otf|webp|avif)(\?.*)?$") {
+                  unset beresp.http.Set-Cookie;
+                  set beresp.ttl = 1d;
+                  set beresp.grace = 1h;
+              }
+
+              # Respect Cache-Control: no-cache / no-store from Magento
+              if (beresp.http.Cache-Control ~ "no-cache|no-store|private") {
+                  set beresp.ttl = 0s;
+                  set beresp.uncacheable = true;
+                  return(deliver);
+              }
+
+              # Default page TTL: 1 hour (Magento will BAN/PURGE as needed)
+              if (beresp.ttl <= 0s) {
+                  set beresp.ttl = 1h;
+              }
+
+              # Retain grace period for serving stale while revalidating
+              set beresp.grace = 30m;
+
+              return(deliver);
+          }
+
+          ###################################################################
+          # vcl_deliver — add informational headers for debugging
+          ###################################################################
+          sub vcl_deliver {
+              if (obj.hits > 0) {
+                  set resp.http.X-Cache = "HIT";
+                  set resp.http.X-Cache-Hits = obj.hits;
+              } else {
+                  set resp.http.X-Cache = "MISS";
+              }
+              # Remove internal Varnish headers before sending to client
+              unset resp.http.X-Magento-Tags;
+              unset resp.http.Via;
+              return(deliver);
+          }
+
+          ###################################################################
+          # vcl_synth — format synthetic responses (purge/ban results)
+          ###################################################################
+          sub vcl_synth {
+              if (resp.status == 750) {
+                  set resp.status = 301;
+                  set resp.http.Location = resp.reason;
+                  set resp.reason = "Moved Permanently";
+                  return(deliver);
+              }
+          }
+        # end of VCL content block
+      notify: Restart Varnish
+
+    ###########################################################################
+    # Varnish daemon configuration — listen on port 80
+    ###########################################################################
+
+    - name: Create Varnish systemd override directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/varnish.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Write Varnish systemd override to set listen port
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/varnish.service.d/override.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Service]
+          ExecStart=
+          ExecStart=/usr/sbin/varnishd \
+            -j unix,user=vcache \
+            -F \
+            -a :{{ varnish_port }} \
+            -T localhost:6082 \
+            -f /etc/varnish/default.vcl \
+            -S /etc/varnish/secret \
+            -s malloc,256m
+      notify:
+        - Reload systemd
+        - Restart Varnish
+
+    ###########################################################################
+    # Services
+    ###########################################################################
+
+    - name: Enable and start Varnish
+      ansible.builtin.systemd:
+        name: varnish
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+  handlers:
+
+    - name: Reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Restart Varnish
+      ansible.builtin.systemd:
+        name: varnish
+        state: restarted
+        daemon_reload: yes

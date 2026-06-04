@@ -27,4 +27,24 @@ runcmd:
     PRIVATE_IP=$(curl -H "Authorization: Bearer Oracle" -L http://169.254.169.254/opc/v2/instance/metadata/privateIp 2>/dev/null || true)
     echo "Varnish instance IP: $PRIVATE_IP" >> /var/log/cloud-init-custom.log
 
+  - |
+    export PATH="$PATH:/root/.local/bin:/root/bin"
+    echo "Downloading varnish Ansible playbook..." >> /var/log/cloud-init-custom.log
+    /root/bin/oci os object get \
+      --bucket-name ${project}-system \
+      --name ansible/playbooks/varnish.yml \
+      --file /tmp/varnish.yml \
+      --region ${region} \
+      --auth instance_principal 2>>/var/log/cloud-init-custom.log
+
+  - |
+    export PATH="$PATH:/root/.local/bin:/root/bin"
+    echo "Running varnish Ansible playbook..." >> /var/log/cloud-init-custom.log
+    ansible-playbook /tmp/varnish.yml \
+      -e "project=${project}" \
+      -e "environment=${environment}" \
+      -e "brand=${brand}" \
+      -e "region=${region}" \
+      2>&1 | tee -a /var/log/cloud-init-custom.log
+
 final_message: "Varnish instance initialized in ${project} (${environment})"

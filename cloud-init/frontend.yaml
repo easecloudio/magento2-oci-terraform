@@ -20,10 +20,35 @@ runcmd:
   - |
     pip3 install pipx --quiet
     /usr/local/bin/pipx install ansible-core
+    /usr/local/bin/pipx inject ansible-core ansible
     export PATH="$PATH:/root/.local/bin"
 
   - |
     PRIVATE_IP=$(curl -H "Authorization: Bearer Oracle" -L http://169.254.169.254/opc/v2/instance/metadata/privateIp 2>/dev/null || true)
     echo "Instance IP: $PRIVATE_IP" >> /var/log/cloud-init-custom.log
+
+  - |
+    export PATH="$PATH:/root/.local/bin:/root/bin"
+    echo "Downloading frontend Ansible playbook..." >> /var/log/cloud-init-custom.log
+    /root/bin/oci os object get \
+      --bucket-name ${project}-system \
+      --name ansible/playbooks/frontend.yml \
+      --file /tmp/frontend.yml \
+      --region ${region} \
+      --auth instance_principal 2>>/var/log/cloud-init-custom.log
+
+  - |
+    export PATH="$PATH:/root/.local/bin:/root/bin"
+    echo "Running frontend Ansible playbook..." >> /var/log/cloud-init-custom.log
+    ansible-playbook /tmp/frontend.yml \
+      -e "project=${project}" \
+      -e "environment=${environment}" \
+      -e "brand=${brand}" \
+      -e "region=${region}" \
+      -e "nfs_mount_ip=${nfs_mount_ip}" \
+      -e "mysql_host=${mysql_host}" \
+      -e "opensearch_fqdn=${opensearch_fqdn}" \
+      -e "os_namespace=${os_namespace}" \
+      2>&1 | tee -a /var/log/cloud-init-custom.log
 
 final_message: "Frontend instance initialized in ${project} (${environment})"
