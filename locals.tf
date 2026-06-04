@@ -23,6 +23,8 @@ locals {
 
   db_name = replace(local.project, "-", "_")
 
+  tls_enabled = length(oci_load_balancer_certificate.this) > 0
+
   pool_lb_config = {
     varnish  = { backend_set_name = oci_load_balancer_backend_set.varnish.name, port = 80 }
     frontend = { backend_set_name = oci_load_balancer_backend_set.frontend.name, port = 8080 }
