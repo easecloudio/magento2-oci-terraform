@@ -22,8 +22,8 @@ resource "oci_core_instance_pool" "this" {
 
   load_balancers {
     load_balancer_id = oci_load_balancer_load_balancer.this.id
-    backend_set_name = each.key == "varnish" ? oci_load_balancer_backend_set.varnish.name : oci_load_balancer_backend_set.frontend.name
-    port             = each.key == "varnish" ? 80 : 8080
+    backend_set_name = local.pool_lb_config[each.key].backend_set_name
+    port             = local.pool_lb_config[each.key].port
     vnic_selection   = "PrimaryVnic"
   }
 

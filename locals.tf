@@ -22,4 +22,9 @@ locals {
   }
 
   db_name = replace(local.project, "-", "_")
+
+  pool_lb_config = {
+    varnish  = { backend_set_name = oci_load_balancer_backend_set.varnish.name, port = 80 }
+    frontend = { backend_set_name = oci_load_balancer_backend_set.frontend.name, port = 8080 }
+  }
 }
