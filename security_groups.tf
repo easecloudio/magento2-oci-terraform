@@ -295,3 +295,78 @@ resource "oci_core_network_security_group_security_rule" "opensearch_egress_all"
   destination               = "0.0.0.0/0"
   destination_type          = "CIDR_BLOCK"
 }
+
+# # ---------------------------------------------------------------------------------------------------------------------#
+# Cron NSG — egress only; no LB ingress (cron has no web listeners)
+# # ---------------------------------------------------------------------------------------------------------------------#
+resource "oci_core_network_security_group" "cron" {
+  compartment_id = local.env.oci.compartment_ocid
+  vcn_id         = oci_core_vcn.this.id
+  display_name   = "${local.project}-cron-nsg"
+  freeform_tags  = local.default_tags
+}
+
+resource "oci_core_network_security_group_security_rule" "cron_egress_all" {
+  network_security_group_id = oci_core_network_security_group.cron.id
+  direction                 = "EGRESS"
+  protocol                  = "all"
+  destination               = "0.0.0.0/0"
+  destination_type          = "CIDR_BLOCK"
+}
+
+# Allow cron → backing services (mirroring the compute NSG rules below)
+resource "oci_core_network_security_group_security_rule" "database_ingress_mysql_cron" {
+  network_security_group_id = oci_core_network_security_group.database.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = oci_core_network_security_group.cron.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+  tcp_options {
+    destination_port_range {
+      min = 3306
+      max = 3306
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "cache_ingress_redis_cron" {
+  network_security_group_id = oci_core_network_security_group.cache.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = oci_core_network_security_group.cron.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+  tcp_options {
+    destination_port_range {
+      min = 6379
+      max = 6379
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "nfs_ingress_cron" {
+  network_security_group_id = oci_core_network_security_group.nfs.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = oci_core_network_security_group.cron.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+  tcp_options {
+    destination_port_range {
+      min = 2049
+      max = 2049
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "opensearch_ingress_api_cron" {
+  network_security_group_id = oci_core_network_security_group.opensearch.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = oci_core_network_security_group.cron.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+  tcp_options {
+    destination_port_range {
+      min = 9200
+      max = 9200
+    }
+  }
+}

@@ -197,12 +197,11 @@
           listen.group = www-data
           listen.mode = 0660
 
-          pm = dynamic
-          pm.max_children = 50
-          pm.start_servers = 5
-          pm.min_spare_servers = 5
-          pm.max_spare_servers = 10
-          pm.max_requests = 1000
+          ; cron invokes PHP directly (not via FPM socket); ondemand keeps idle workers at zero
+          pm = ondemand
+          pm.max_children = 4
+          pm.process_idle_timeout = 10s
+          pm.max_requests = 200
 
           php_admin_value[error_log] = /var/log/php/magento-fpm-error.log
           php_admin_flag[log_errors] = on
@@ -279,13 +278,6 @@
         weekday: "*"
         user: www-data
         job: "/usr/bin/php /var/www/magento/bin/magento cron:run >> /var/log/magento/cron.log 2>&1"
-
-    - name: Install Magento consumers cron
-      ansible.builtin.cron:
-        name: "magento-consumers"
-        minute: "*/5"
-        user: www-data
-        job: "/usr/bin/php /var/www/magento/bin/magento cron:run --group=consumers >> /var/log/magento/cron.log 2>&1"
 
     ###########################################################################
     # TODO: Magento code deployment

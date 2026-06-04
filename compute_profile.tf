@@ -42,7 +42,7 @@ resource "oci_core_instance_configuration" "this" {
 
       create_vnic_details {
         assign_public_ip = false
-        nsg_ids          = [oci_core_network_security_group.compute.id]
+        nsg_ids          = each.key == "cron" ? [oci_core_network_security_group.cron.id] : [oci_core_network_security_group.compute.id]
       }
 
       freeform_tags = local.default_tags

@@ -86,9 +86,9 @@ resource "oci_load_balancer_listener" "imgproxy" {
 }
 
 resource "oci_load_balancer_load_balancer_routing_policy" "admin" {
-  count            = local.tls_enabled ? 1 : 0
-  load_balancer_id = oci_load_balancer_load_balancer.this.id
-  name             = "admin-routing-policy"
+  count                      = local.tls_enabled ? 1 : 0
+  load_balancer_id           = oci_load_balancer_load_balancer.this.id
+  name                       = "admin-routing-policy"
   condition_language_version = "HTTP_1"
 
   rules {
@@ -109,7 +109,7 @@ resource "oci_load_balancer_listener" "https" {
   default_backend_set_name = oci_load_balancer_backend_set.varnish.name
   port                     = 443
   protocol                 = "HTTP2"
-  routing_policy_name      = local.tls_enabled ? oci_load_balancer_load_balancer_routing_policy.admin[0].name : null
+  routing_policy_name      = oci_load_balancer_load_balancer_routing_policy.admin[0].name
 
   ssl_configuration {
     certificate_name        = oci_load_balancer_certificate.this[0].certificate_name

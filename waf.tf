@@ -114,7 +114,7 @@ resource "oci_waf_web_app_firewall_policy" "this" {
         name               = "restrict-admin-subdomain"
         type               = "ACCESS_CONTROL"
         action_name        = "ADMIN_BLOCK"
-        condition          = "!i_contains(${jsonencode(local.env.waf.admin_allowed_cidrs)}, http.request.ip) && http.request.headers['Host'] == '${local.admin_domain}'"
+        condition          = "i_contains(['${local.admin_domain}'], http.request.headers['Host']) && !i_contains(${jsonencode(local.env.waf.admin_allowed_cidrs)}, http.request.ip)"
         condition_language = "JMESPATH"
       }
     }

@@ -24,7 +24,9 @@ resource "oci_dns_rrset" "apex" {
   }
 }
 
+# Only created when TLS is enabled — admin subdomain routing only works on the HTTPS listener
 resource "oci_dns_rrset" "admin" {
+  count           = local.tls_enabled ? 1 : 0
   zone_name_or_id = oci_dns_zone.public.id
   domain          = local.admin_domain
   rtype           = "A"
