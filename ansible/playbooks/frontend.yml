@@ -79,6 +79,8 @@
           - "php{{ php_version }}-xsl"
           - "php{{ php_version }}-sockets"
           - "php{{ php_version }}-common"
+          - "php{{ php_version }}-redis"
+          - "php{{ php_version }}-opcache"
         state: present
         update_cache: yes
 
@@ -145,6 +147,7 @@
           --raw-output | base64 -d
       register: mysql_password
       changed_when: false
+      no_log: true
 
     - name: Fetch Redis password from OCI Vault
       ansible.builtin.shell: |
@@ -157,6 +160,7 @@
           --raw-output | base64 -d
       register: redis_password
       changed_when: false
+      no_log: true
 
     - name: Fetch OpenSearch password from OCI Vault
       ansible.builtin.shell: |
@@ -169,6 +173,7 @@
           --raw-output | base64 -d
       register: opensearch_password
       changed_when: false
+      no_log: true
 
     ###########################################################################
     # PHP-FPM pool configuration
@@ -206,13 +211,17 @@
           php_admin_value[max_input_vars] = 10000
           env[MAGENTO_ROOT] = {{ magento_root }}
           env[DB_HOST] = {{ mysql_host }}
+          env[DB_PASSWORD] = {{ mysql_password.stdout }}
+          env[REDIS_PASSWORD] = {{ redis_password.stdout }}
           env[OPENSEARCH_HOST] = {{ opensearch_fqdn }}
+          env[OPENSEARCH_PASSWORD] = {{ opensearch_password.stdout }}
           env[OCI_REGION] = {{ region }}
           env[OCI_NAMESPACE] = {{ os_namespace }}
         owner: root
         group: root
         mode: "0644"
       notify: Restart PHP-FPM
+      no_log: true
 
     - name: Remove default PHP-FPM www pool
       ansible.builtin.file:

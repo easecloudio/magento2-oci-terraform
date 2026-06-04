@@ -35,6 +35,7 @@ resource "oci_core_instance_configuration" "this" {
           os_namespace     = data.oci_objectstorage_namespace.this.namespace
           vault_id         = oci_kms_vault.this.id
           compartment_id   = local.env.oci.compartment_ocid
+          vcn_cidr         = local.env.vcn.cidr_block
         }))
       }
 

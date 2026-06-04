@@ -46,6 +46,7 @@ runcmd:
       -e "environment=${environment}" \
       -e "brand=${brand}" \
       -e "region=${region}" \
+      -e "vcn_cidr=${vcn_cidr}" \
       2>&1 | tee -a /var/log/cloud-init-custom.log
 
 final_message: "Varnish instance initialized in ${project} (${environment})"

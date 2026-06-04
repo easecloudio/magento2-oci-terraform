@@ -22,6 +22,7 @@ runcmd:
     /usr/local/bin/pipx install ansible-core
     /usr/local/bin/pipx inject ansible-core ansible
     export PATH="$PATH:/root/.local/bin"
+    ansible-galaxy collection install ansible.posix
 
   - |
     PRIVATE_IP=$(curl -H "Authorization: Bearer Oracle" -L http://169.254.169.254/opc/v2/instance/metadata/privateIp 2>/dev/null || true)

@@ -7,6 +7,7 @@
 #   environment - e.g. "developer"
 #   brand       - e.g. "easecloud"
 #   region      - OCI region, e.g. "us-ashburn-1"
+#   vcn_cidr    - VCN CIDR block for purge ACL, e.g. "172.35.0.0/16"
 
 - name: Configure Varnish cache tier
   hosts: localhost
@@ -59,7 +60,7 @@
           acl purge {
               "localhost";
               "127.0.0.1";
-              "172.35.0.0/16";
+              "{{ vcn_cidr }}";
           }
 
           ###################################################################
