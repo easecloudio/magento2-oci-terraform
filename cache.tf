@@ -15,5 +15,5 @@ resource "oci_redis_redis_cluster" "this" {
   # Redis AUTH is configured via oci_redis_oci_cache_user (available in newer provider
   # versions). The generated password is stored in the OCI Vault secret
   # "${local.project}-redis-password" and should be applied after cluster creation.
-  freeform_tags      = local.default_tags
+  freeform_tags = local.default_tags
 }

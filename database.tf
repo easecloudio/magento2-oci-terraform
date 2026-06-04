@@ -34,7 +34,7 @@ resource "oci_mysql_mysql_db_system" "this" {
   hostname_label          = "${local.project}-mysql"
   configuration_id        = oci_mysql_mysql_configuration.this.id
   # WARNING: disabling HA on a running production cluster will remove the standby replica
-  is_highly_available     = local.environment == "production"
+  is_highly_available = local.environment == "production"
 
   backup_policy {
     is_enabled        = true

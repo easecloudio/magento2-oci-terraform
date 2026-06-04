@@ -132,10 +132,11 @@ resource "oci_core_network_security_group_security_rule" "internal_lb_ingress" {
 }
 
 resource "oci_core_network_security_group_security_rule" "internal_lb_egress" {
+  for_each                  = toset(local.private_subnet_cidrs)
   network_security_group_id = oci_core_network_security_group.internal_lb.id
   direction                 = "EGRESS"
   protocol                  = "all"
-  destination               = "0.0.0.0/0"
+  destination               = each.value
   destination_type          = "CIDR_BLOCK"
 }
 

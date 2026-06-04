@@ -25,17 +25,17 @@ resource "oci_core_instance_configuration" "this" {
 
       metadata = {
         user_data = base64encode(templatefile("${path.module}/cloud-init/${each.key}.yaml", {
-          project          = local.project
-          environment      = local.environment
-          brand            = local.env.brand
-          region           = local.env.oci.region
-          nfs_mount_ip     = data.oci_core_private_ip.nfs_mount_target.ip_address
-          mysql_host       = oci_mysql_mysql_db_system.this.endpoints[0].hostname
-          opensearch_fqdn  = oci_opensearch_opensearch_cluster.this.opensearch_fqdn
-          os_namespace     = data.oci_objectstorage_namespace.this.namespace
-          vault_id         = oci_kms_vault.this.id
-          compartment_id   = local.env.oci.compartment_ocid
-          vcn_cidr         = local.env.vcn.cidr_block
+          project         = local.project
+          environment     = local.environment
+          brand           = local.env.brand
+          region          = local.env.oci.region
+          nfs_mount_ip    = data.oci_core_private_ip.nfs_mount_target.ip_address
+          mysql_host      = oci_mysql_mysql_db_system.this.endpoints[0].hostname
+          opensearch_fqdn = oci_opensearch_opensearch_cluster.this.opensearch_fqdn
+          os_namespace    = data.oci_objectstorage_namespace.this.namespace
+          vault_id        = oci_kms_vault.this.id
+          compartment_id  = local.env.oci.compartment_ocid
+          vcn_cidr        = local.env.vcn.cidr_block
         }))
         ssh_authorized_keys = var.ssh_public_key != "" ? var.ssh_public_key : null
       }

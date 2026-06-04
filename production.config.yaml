@@ -100,6 +100,7 @@ waf:
     requests_limit: 100
     period_in_seconds: 60
     action_duration_in_seconds: 60
+  # REQUIRED before go-live: replace [] with your office/VPN CIDRs to restrict admin access
   admin_allowed_cidrs: []
   admin_rate_limit:
     requests_limit: 20

@@ -74,7 +74,7 @@ resource "oci_load_balancer_listener" "http" {
   port                     = 80
   protocol                 = "HTTP"
   # default_backend_set_name is required by OCI even when all traffic is redirected by the rule set
-  rule_set_names           = local.tls_enabled ? [oci_load_balancer_rule_set.http_to_https_redirect[0].name] : []
+  rule_set_names = local.tls_enabled ? [oci_load_balancer_rule_set.http_to_https_redirect[0].name] : []
 }
 
 resource "oci_load_balancer_listener" "imgproxy" {

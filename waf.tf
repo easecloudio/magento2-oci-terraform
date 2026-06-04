@@ -56,16 +56,16 @@ resource "oci_waf_web_app_firewall_policy" "this" {
 
   request_rate_limiting {
     rules {
-      name               = "rate-limit-per-ip"
-      type               = "REQUEST_RATE_LIMITING"
-      action_name        = "RATE_LIMIT"
+      name        = "rate-limit-per-ip"
+      type        = "REQUEST_RATE_LIMITING"
+      action_name = "RATE_LIMIT"
       # Exclude the LB health check path so probe traffic is never rate-limited
       condition          = "http.request.url.path != '/${random_string.this["health_check"].result}'"
       condition_language = "JMESPATH"
 
       configurations {
-        period_in_seconds          = local.env.waf.rate_limit.period_in_seconds
-        requests_limit             = local.env.waf.rate_limit.requests_limit
+        period_in_seconds = local.env.waf.rate_limit.period_in_seconds
+        requests_limit    = local.env.waf.rate_limit.requests_limit
         # Retry-After header above must match this value when updated
         action_duration_in_seconds = local.env.waf.rate_limit.action_duration_in_seconds
       }
@@ -103,7 +103,7 @@ resource "oci_waf_web_app_firewall_policy" "this" {
         name               = "restrict-admin-path"
         type               = "ACCESS_CONTROL"
         action_name        = "ADMIN_BLOCK"
-        condition          = "i_starts_with(http.request.url.path, '/${random_string.this["admin_path"].result}') && length(${jsonencode(local.env.waf.admin_allowed_cidrs)}) > 0 && !i_contains(${jsonencode(local.env.waf.admin_allowed_cidrs)}, http.request.ip)"
+        condition          = "i_starts_with(http.request.url.path, '/${random_string.this["admin_path"].result}') && !i_contains(${jsonencode(local.env.waf.admin_allowed_cidrs)}, http.request.ip)"
         condition_language = "JMESPATH"
       }
     }

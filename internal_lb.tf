@@ -33,10 +33,15 @@ resource "oci_load_balancer_backend_set" "internal_frontend" {
   }
 }
 
+# WAF is intentionally not attached — traffic on this LB originates only from Varnish instances inside the VCN
 resource "oci_load_balancer_listener" "internal_frontend" {
   load_balancer_id         = oci_load_balancer_load_balancer.internal.id
   name                     = "internal-frontend-listener"
   default_backend_set_name = oci_load_balancer_backend_set.internal_frontend.name
   port                     = 8080
   protocol                 = "HTTP"
+
+  connection_configuration {
+    idle_timeout_in_seconds = 600
+  }
 }
