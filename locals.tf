@@ -31,8 +31,13 @@ locals {
 
   private_subnet_cidrs = [for i in range(local.env.vcn.availability_domains_qty) : cidrsubnet(local.env.vcn.cidr_block, 4, i + 8)]
 
-  pool_lb_config = {
-    varnish  = { backend_set_name = oci_load_balancer_backend_set.varnish.name, port = 80 }
-    frontend = { backend_set_name = oci_load_balancer_backend_set.frontend.name, port = 8080 }
+  pool_lb_configs = {
+    varnish = [
+      { lb_id = oci_load_balancer_load_balancer.this.id, backend_set_name = oci_load_balancer_backend_set.varnish.name, port = 80 }
+    ]
+    frontend = [
+      { lb_id = oci_load_balancer_load_balancer.this.id, backend_set_name = oci_load_balancer_backend_set.frontend.name, port = 8080 },
+      { lb_id = oci_load_balancer_load_balancer.internal.id, backend_set_name = oci_load_balancer_backend_set.internal_frontend.name, port = 8080 },
+    ]
   }
 }

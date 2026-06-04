@@ -53,3 +53,8 @@ output "bastion_private_ip" {
   description = "Private endpoint IP of the OCI Bastion service"
   value       = oci_bastion_bastion.this.private_endpoint_ip_address
 }
+
+output "internal_lb_ip" {
+  description = "Private IP of the internal load balancer (Varnish to Frontend)"
+  value       = oci_load_balancer_load_balancer.internal.ip_address_details[0].ip_address
+}

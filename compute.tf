@@ -20,11 +20,14 @@ resource "oci_core_instance_pool" "this" {
     }
   }
 
-  load_balancers {
-    load_balancer_id = oci_load_balancer_load_balancer.this.id
-    backend_set_name = local.pool_lb_config[each.key].backend_set_name
-    port             = local.pool_lb_config[each.key].port
-    vnic_selection   = "PrimaryVnic"
+  dynamic "load_balancers" {
+    for_each = local.pool_lb_configs[each.key]
+    content {
+      load_balancer_id = load_balancers.value.lb_id
+      backend_set_name = load_balancers.value.backend_set_name
+      port             = load_balancers.value.port
+      vnic_selection   = "PrimaryVnic"
+    }
   }
 
   lifecycle {

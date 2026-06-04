@@ -108,6 +108,52 @@ resource "oci_core_network_security_group_security_rule" "compute_egress_all" {
 }
 
 # # ---------------------------------------------------------------------------------------------------------------------#
+# Internal LB NSG — allows Varnish→Frontend traffic on port 8080
+# # ---------------------------------------------------------------------------------------------------------------------#
+resource "oci_core_network_security_group" "internal_lb" {
+  compartment_id = local.env.oci.compartment_ocid
+  vcn_id         = oci_core_vcn.this.id
+  display_name   = "${local.project}-internal-lb-nsg"
+  freeform_tags  = local.default_tags
+}
+
+resource "oci_core_network_security_group_security_rule" "internal_lb_ingress" {
+  network_security_group_id = oci_core_network_security_group.internal_lb.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = oci_core_network_security_group.compute.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+  tcp_options {
+    destination_port_range {
+      min = 8080
+      max = 8080
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "internal_lb_egress" {
+  network_security_group_id = oci_core_network_security_group.internal_lb.id
+  direction                 = "EGRESS"
+  protocol                  = "all"
+  destination               = "0.0.0.0/0"
+  destination_type          = "CIDR_BLOCK"
+}
+
+resource "oci_core_network_security_group_security_rule" "compute_ingress_from_internal_lb" {
+  network_security_group_id = oci_core_network_security_group.compute.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = oci_core_network_security_group.internal_lb.id
+  source_type               = "NETWORK_SECURITY_GROUP"
+  tcp_options {
+    destination_port_range {
+      min = 8080
+      max = 8080
+    }
+  }
+}
+
+# # ---------------------------------------------------------------------------------------------------------------------#
 # Database NSG — allows MySQL from compute only
 # # ---------------------------------------------------------------------------------------------------------------------#
 resource "oci_core_network_security_group" "database" {
