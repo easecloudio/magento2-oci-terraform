@@ -53,12 +53,15 @@ mysql:
     - { name: "innodb_flush_log_at_trx_commit", value: "2" }
 
 redis:
-  node_count: 1
   node_memory_in_gbs: 4
   software_version: "REDIS_7_0"
-  name:
-    - "session"
-    - "cache"
+  clusters:
+    - name: "session"
+      node_count: 1
+      subnet_index: 0
+    - name: "cache"
+      node_count: 1
+      subnet_index: 0
 
 opensearch:
   node_count: 1

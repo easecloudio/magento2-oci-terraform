@@ -25,6 +25,8 @@ locals {
 
   mysql_params = { for p in local.env.mysql.parameters : p.name => p.value }
 
+  redis_clusters = { for c in local.env.redis.clusters : c.name => c }
+
   tls_enabled = length(oci_load_balancer_certificate.this) > 0
 
   private_subnet_cidrs = [for i in range(local.env.vcn.availability_domains_qty) : cidrsubnet(local.env.vcn.cidr_block, 4, i + 8)]

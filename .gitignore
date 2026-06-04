@@ -5,5 +5,7 @@
 .terraform.lock.hcl
 *.config.yaml
 !developer.config.yaml
+!staging.config.yaml
+!production.config.yaml
 *.pem
 *.key

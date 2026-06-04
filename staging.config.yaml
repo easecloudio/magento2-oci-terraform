@@ -1,0 +1,117 @@
+brand: &brand easecloud
+codename: magento
+github_repo: "your-org/your-magento-repo"
+
+domain: &domain "yourdomain.com"
+admin_email: &email "admin@yourdomain.com"
+
+oci:
+  region: "us-ashburn-1"
+  tenancy_ocid: ""
+  compartment_ocid: ""
+
+vcn:
+  cidr_block: "172.35.0.0/16"
+  availability_domains_qty: 2
+  dns_label: "vcn"
+
+compute:
+  frontend:
+    shape: "VM.Standard.A1.Flex"
+    ocpus: 4
+    memory_gb: 24
+    volume_size_gb: 50
+    desired_capacity: 2
+    min_size: 2
+    max_size: 6
+  varnish:
+    shape: "VM.Standard.A1.Flex"
+    ocpus: 2
+    memory_gb: 12
+    volume_size_gb: 25
+    desired_capacity: 2
+    min_size: 2
+    max_size: 6
+
+autoscaling:
+  cooldown_in_seconds: 300
+  out_threshold_percent: 80
+  in_threshold_percent: 25
+
+mysql:
+  shape: "MySQL.VM.Standard.E4.1.16GB"
+  storage_size_gb: 100
+  backup_retention_days: 14
+  engine_version: "8.0"
+  admin_username: "magentoadmin"
+  parameters:
+    - { name: "max_allowed_packet",             value: "268435456" }
+    - { name: "wait_timeout",                   value: "7200" }
+    - { name: "interactive_timeout",            value: "7200" }
+    - { name: "innodb_lock_wait_timeout",       value: "60" }
+    # innodb_flush_log_at_trx_commit is not exposed by the OCI provider — set it via MySQL CLI after provisioning
+    - { name: "innodb_flush_log_at_trx_commit", value: "2" }
+
+redis:
+  node_memory_in_gbs: 4
+  software_version: "REDIS_7_0"
+  clusters:
+    - name: "session"
+      node_count: 1
+      subnet_index: 0
+    - name: "cache"
+      node_count: 1
+      subnet_index: 1
+
+opensearch:
+  node_count: 2
+  master_node_count: 1
+  opendashboard_node_count: 1
+  software_version: "2.11.0"
+
+object_storage:
+  buckets:
+    - "media"
+    - "media-optimized"
+    - "system"
+    - "backup"
+
+file_storage:
+  mounts:
+    var:
+      uid: 1001
+      gid: 1002
+      permissions: "2770"
+    media:
+      uid: 1001
+      gid: 1002
+      permissions: "2770"
+
+waf:
+  restricted_countries:
+    - "CN"
+    - "RU"
+    - "IR"
+    - "KP"
+    - "SD"
+    - "SY"
+    - "CU"
+  rate_limit:
+    requests_limit: 100
+    period_in_seconds: 60
+    action_duration_in_seconds: 60
+  admin_allowed_cidrs: []
+
+password:
+  - "database"
+  - "redis"
+  - "opensearch"
+
+string:
+  - "admin_path"
+  - "health_check"
+  - "opensearch_admin"
+
+budget:
+  amount: 500
+  threshold_percent: 85
