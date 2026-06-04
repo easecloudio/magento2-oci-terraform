@@ -48,3 +48,8 @@ output "environment" {
   description = "Active Terraform workspace / environment name"
   value       = local.environment
 }
+
+output "bastion_private_ip" {
+  description = "Private endpoint IP of the OCI Bastion service"
+  value       = oci_bastion_bastion.this.private_endpoint_ip_address
+}

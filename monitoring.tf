@@ -65,11 +65,12 @@ resource "oci_monitoring_alarm" "mysql_connections_high" {
   is_enabled            = true
   metric_compartment_id = local.env.oci.compartment_ocid
   namespace             = "oci_mysql_heatwave"
-  query                 = "CurrentConnections[5m].max() > 80"
-  severity              = "WARNING"
-  freeform_tags         = local.default_tags
-  message_format        = "ONS_OPTIMIZED"
-  pending_duration      = "PT5M"
+  # 80 connections — tune relative to shape max_connections (E4.1.8GB default ~150)
+  query            = "CurrentConnections[5m]{resourceId = \"${oci_mysql_mysql_db_system.this.id}\"}.max() > 80"
+  severity         = "WARNING"
+  freeform_tags    = local.default_tags
+  message_format   = "ONS_OPTIMIZED"
+  pending_duration = "PT5M"
 }
 
 resource "oci_monitoring_alarm" "mysql_storage_low" {
@@ -79,21 +80,23 @@ resource "oci_monitoring_alarm" "mysql_storage_low" {
   is_enabled            = true
   metric_compartment_id = local.env.oci.compartment_ocid
   namespace             = "oci_mysql_heatwave"
-  query                 = "FreeDataStorageSpace[5m].min() < 10000000000"
-  severity              = "CRITICAL"
-  freeform_tags         = local.default_tags
-  message_format        = "ONS_OPTIMIZED"
-  pending_duration      = "PT2M"
+  # ~10 GB free — ~20% of default 50 GB allocation
+  query            = "FreeDataStorageSpace[5m]{resourceId = \"${oci_mysql_mysql_db_system.this.id}\"}.min() < 10000000000"
+  severity         = "CRITICAL"
+  freeform_tags    = local.default_tags
+  message_format   = "ONS_OPTIMIZED"
+  pending_duration = "PT2M"
 }
 
 resource "oci_monitoring_alarm" "redis_memory_high" {
+  for_each              = oci_redis_redis_cluster.this
   compartment_id        = local.env.oci.compartment_ocid
-  display_name          = "${local.project}-redis-memory-high"
+  display_name          = "${local.project}-redis-${each.key}-memory-high"
   destinations          = [oci_ons_notification_topic.default.id]
   is_enabled            = true
   metric_compartment_id = local.env.oci.compartment_ocid
   namespace             = "oci_redis"
-  query                 = "UsedMemoryPercentage[5m].mean() > 80"
+  query                 = "UsedMemoryPercentage[5m]{resourceId = \"${each.value.id}\"}.mean() > 80"
   severity              = "WARNING"
   freeform_tags         = local.default_tags
   message_format        = "ONS_OPTIMIZED"
@@ -107,7 +110,7 @@ resource "oci_monitoring_alarm" "opensearch_cluster_unhealthy" {
   is_enabled            = true
   metric_compartment_id = local.env.oci.compartment_ocid
   namespace             = "oci_opensearch"
-  query                 = "ClusterStatus[5m].max() > 0"
+  query                 = "ClusterStatus[5m]{resourceId = \"${oci_opensearch_opensearch_cluster.this.id}\"}.max() > 0"
   severity              = "CRITICAL"
   freeform_tags         = local.default_tags
   message_format        = "ONS_OPTIMIZED"
