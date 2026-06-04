@@ -20,6 +20,13 @@ resource "oci_core_instance_pool" "this" {
     }
   }
 
+  load_balancers {
+    load_balancer_id = oci_load_balancer_load_balancer.this.id
+    backend_set_name = each.key == "varnish" ? oci_load_balancer_backend_set.varnish.name : oci_load_balancer_backend_set.frontend.name
+    port             = each.key == "varnish" ? 80 : 8080
+    vnic_selection   = "PrimaryVnic"
+  }
+
   lifecycle {
     create_before_destroy = true
     ignore_changes        = [size]
