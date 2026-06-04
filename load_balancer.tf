@@ -49,12 +49,31 @@ resource "oci_load_balancer_backend_set" "frontend" {
   }
 }
 
+resource "oci_load_balancer_rule_set" "http_to_https_redirect" {
+  count            = length(oci_load_balancer_certificate.this) > 0 ? 1 : 0
+  load_balancer_id = oci_load_balancer_load_balancer.this.id
+  name             = "http-to-https-redirect"
+
+  items {
+    action = "REDIRECT"
+    redirect_uri {
+      protocol = "HTTPS"
+      host     = "{host}"
+      path     = "{path}"
+      query    = "?{query}"
+      port     = 443
+    }
+    response_code = 301
+  }
+}
+
 resource "oci_load_balancer_listener" "http" {
   load_balancer_id         = oci_load_balancer_load_balancer.this.id
   name                     = "http-listener"
   default_backend_set_name = oci_load_balancer_backend_set.varnish.name
   port                     = 80
   protocol                 = "HTTP"
+  rule_set_names           = length(oci_load_balancer_certificate.this) > 0 ? [oci_load_balancer_rule_set.http_to_https_redirect[0].name] : []
 }
 
 resource "oci_load_balancer_listener" "imgproxy" {
@@ -72,7 +91,7 @@ resource "oci_load_balancer_listener" "https" {
   name                     = "https-listener"
   default_backend_set_name = oci_load_balancer_backend_set.varnish.name
   port                     = 443
-  protocol                 = "HTTP"
+  protocol                 = "HTTP2"
 
   ssl_configuration {
     certificate_name        = oci_load_balancer_certificate.this[0].certificate_name
