@@ -119,20 +119,20 @@
     - name: Detect availability domain index from instance metadata
       ansible.builtin.shell: |
         curl -sH "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ \
-          | python3 -c "import sys,json; d=json.load(sys.stdin); ad=d['availabilityDomain']; print(ad.split(':')[-1].replace('AD-','')[-1])"
+          | python3 -c "import sys,json; d=json.load(sys.stdin); ad=d['availabilityDomain']; print(str(int(ad.split(':')[-1].split('-')[-1]) - 1))"
       register: ad_index
       changed_when: false
 
     - name: Set NFS mount target IP for this AD
       ansible.builtin.set_fact:
-        nfs_ip: "{{ (nfs_mount_ips | from_json)[ad_index.stdout] }}"
+        nfs_ip: "{{ (nfs_mount_ips | from_json)[ad_index.stdout | trim] }}"
 
     - name: Mount NFS var export
       ansible.posix.mount:
         path: "{{ magento_root }}/var"
         src: "{{ nfs_ip }}:/var"
         fstype: nfs
-        opts: "rw,hard,intr,rsize=65536,wsize=65536,timeo=600,retrans=2,_netdev"
+        opts: "rw,nfsvers=4,hard,intr,rsize=65536,wsize=65536,timeo=600,retrans=2,_netdev"
         state: mounted
 
     - name: Mount NFS media export
@@ -140,7 +140,7 @@
         path: "{{ magento_root }}/pub/media"
         src: "{{ nfs_ip }}:/media"
         fstype: nfs
-        opts: "rw,hard,intr,rsize=65536,wsize=65536,timeo=600,retrans=2,_netdev"
+        opts: "rw,nfsvers=4,hard,intr,rsize=65536,wsize=65536,timeo=600,retrans=2,_netdev"
         state: mounted
 
     ###########################################################################

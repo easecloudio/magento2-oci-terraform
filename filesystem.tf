@@ -43,6 +43,9 @@ resource "oci_file_storage_export" "this" {
   file_system_id = oci_file_storage_file_system.this.id
   path           = "/${each.value.mount_key}"
 
+  # Scoped to this AD's private subnet only. The NFS NSG still allows the full compute NSG
+  # across all ADs — that asymmetry is intentional defense-in-depth (NSG = network layer,
+  # export_options = NFS protocol layer).
   dynamic "export_options" {
     for_each = toset([cidrsubnet(local.env.vcn.cidr_block, 4, each.value.mt_idx + 8)])
     content {
