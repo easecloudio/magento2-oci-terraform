@@ -10,6 +10,8 @@ Production-ready, auto-scaling Magento 2 infrastructure on Oracle Cloud Infrastr
 
 ## Architecture
 
+![Architecture](docs/architecture.gif)
+
 ```
                            Internet
                                │
