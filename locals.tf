@@ -23,6 +23,8 @@ locals {
 
   db_name = replace(local.project, "-", "_")
 
+  mysql_params = { for p in local.env.mysql.parameters : p.name => p.value }
+
   tls_enabled = length(oci_load_balancer_certificate.this) > 0
 
   pool_lb_config = {
