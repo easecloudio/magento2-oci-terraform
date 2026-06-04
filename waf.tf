@@ -43,13 +43,15 @@ resource "oci_waf_web_app_firewall_policy" "this" {
       name               = "rate-limit-per-ip"
       type               = "REQUEST_RATE_LIMITING"
       action_name        = "RATE_LIMIT"
-      condition          = "true"
+      # Exclude the LB health check path so probe traffic is never rate-limited
+      condition          = "http.request.url.path != '/${random_string.this["health_check"].result}'"
       condition_language = "JMESPATH"
 
       configurations {
-        period_in_seconds          = 60
-        requests_limit             = 100
-        action_duration_in_seconds = 60
+        period_in_seconds          = local.env.waf.rate_limit.period_in_seconds
+        requests_limit             = local.env.waf.rate_limit.requests_limit
+        # Retry-After header above must match this value when updated
+        action_duration_in_seconds = local.env.waf.rate_limit.action_duration_in_seconds
       }
     }
   }
