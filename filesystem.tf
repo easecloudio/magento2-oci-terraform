@@ -28,10 +28,13 @@ resource "oci_file_storage_export" "this" {
   file_system_id = oci_file_storage_file_system.this.id
   path           = "/${each.key}"
 
-  export_options {
-    source                         = local.env.vcn.cidr_block
-    access                         = "READ_WRITE"
-    identity_squash                = "ROOT"
-    require_privileged_source_port = false
+  dynamic "export_options" {
+    for_each = local.private_subnet_cidrs
+    content {
+      source                         = export_options.value
+      access                         = "READ_WRITE"
+      identity_squash                = "ROOT"
+      require_privileged_source_port = false
+    }
   }
 }

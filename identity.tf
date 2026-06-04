@@ -15,7 +15,7 @@ resource "oci_identity_policy" "compute" {
   statements = [
     "Allow dynamic-group ${oci_identity_dynamic_group.compute.name} to read secret-bundles in compartment id ${local.env.oci.compartment_ocid}",
     "Allow dynamic-group ${oci_identity_dynamic_group.compute.name} to use vaults in compartment id ${local.env.oci.compartment_ocid}",
-    "Allow dynamic-group ${oci_identity_dynamic_group.compute.name} to read objects in compartment id ${local.env.oci.compartment_ocid}",
+    "Allow dynamic-group ${oci_identity_dynamic_group.compute.name} to read objects in compartment id ${local.env.oci.compartment_ocid} where any {target.bucket.name = '${local.project}-media', target.bucket.name = '${local.project}-media-optimized', target.bucket.name = '${local.project}-system'}",
     "Allow dynamic-group ${oci_identity_dynamic_group.compute.name} to manage objects in compartment id ${local.env.oci.compartment_ocid} where target.bucket.name = '${local.project}-backup'",
     "Allow dynamic-group ${oci_identity_dynamic_group.compute.name} to manage objects in compartment id ${local.env.oci.compartment_ocid} where target.bucket.name = '${local.project}-media'",
     "Allow dynamic-group ${oci_identity_dynamic_group.compute.name} to use file-family in compartment id ${local.env.oci.compartment_ocid}",

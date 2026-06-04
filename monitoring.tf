@@ -57,3 +57,59 @@ resource "oci_monitoring_alarm" "lb_unhealthy_backends" {
   message_format        = "ONS_OPTIMIZED"
   pending_duration      = "PT2M"
 }
+
+resource "oci_monitoring_alarm" "mysql_connections_high" {
+  compartment_id        = local.env.oci.compartment_ocid
+  display_name          = "${local.project}-mysql-connections-high"
+  destinations          = [oci_ons_notification_topic.default.id]
+  is_enabled            = true
+  metric_compartment_id = local.env.oci.compartment_ocid
+  namespace             = "oci_mysql_heatwave"
+  query                 = "CurrentConnections[5m].max() > 80"
+  severity              = "WARNING"
+  freeform_tags         = local.default_tags
+  message_format        = "ONS_OPTIMIZED"
+  pending_duration      = "PT5M"
+}
+
+resource "oci_monitoring_alarm" "mysql_storage_low" {
+  compartment_id        = local.env.oci.compartment_ocid
+  display_name          = "${local.project}-mysql-storage-low"
+  destinations          = [oci_ons_notification_topic.default.id]
+  is_enabled            = true
+  metric_compartment_id = local.env.oci.compartment_ocid
+  namespace             = "oci_mysql_heatwave"
+  query                 = "FreeDataStorageSpace[5m].min() < 10000000000"
+  severity              = "CRITICAL"
+  freeform_tags         = local.default_tags
+  message_format        = "ONS_OPTIMIZED"
+  pending_duration      = "PT2M"
+}
+
+resource "oci_monitoring_alarm" "redis_memory_high" {
+  compartment_id        = local.env.oci.compartment_ocid
+  display_name          = "${local.project}-redis-memory-high"
+  destinations          = [oci_ons_notification_topic.default.id]
+  is_enabled            = true
+  metric_compartment_id = local.env.oci.compartment_ocid
+  namespace             = "oci_redis"
+  query                 = "UsedMemoryPercentage[5m].mean() > 80"
+  severity              = "WARNING"
+  freeform_tags         = local.default_tags
+  message_format        = "ONS_OPTIMIZED"
+  pending_duration      = "PT5M"
+}
+
+resource "oci_monitoring_alarm" "opensearch_cluster_unhealthy" {
+  compartment_id        = local.env.oci.compartment_ocid
+  display_name          = "${local.project}-opensearch-cluster-unhealthy"
+  destinations          = [oci_ons_notification_topic.default.id]
+  is_enabled            = true
+  metric_compartment_id = local.env.oci.compartment_ocid
+  namespace             = "oci_opensearch"
+  query                 = "ClusterStatus[5m].max() > 0"
+  severity              = "CRITICAL"
+  freeform_tags         = local.default_tags
+  message_format        = "ONS_OPTIMIZED"
+  pending_duration      = "PT2M"
+}
