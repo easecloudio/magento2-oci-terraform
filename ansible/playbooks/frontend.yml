@@ -12,6 +12,8 @@
 #   mysql_host     - MySQL HeatWave endpoint hostname
 #   opensearch_fqdn - OCI OpenSearch FQDN
 #   os_namespace   - OCI Object Storage namespace
+#   vault_id       - OCI KMS Vault OCID
+#   compartment_id - OCI compartment OCID
 
 - name: Configure Magento frontend (PHP-FPM + Nginx)
   hosts: localhost
@@ -133,21 +135,40 @@
     ###########################################################################
 
     - name: Fetch MySQL password from OCI Vault
-      ansible.builtin.command:
-        cmd: >
-          /root/bin/oci secrets secret-bundle get
-          --secret-id "{{ lookup('env', 'HOME') }}"
-          --region "{{ region }}"
-          --auth instance_principal
-          --query "data.\"secret-bundle-content\".content"
-          --raw-output
-      register: mysql_password_b64
+      ansible.builtin.shell: |
+        /root/bin/oci secrets secret-bundle get-secret-bundle-by-name \
+          --secret-name "{{ project }}-mysql-password" \
+          --vault-id "{{ vault_id }}" \
+          --region "{{ region }}" \
+          --auth instance_principal \
+          --query "data.\"secret-bundle-content\".content" \
+          --raw-output | base64 -d
+      register: mysql_password
       changed_when: false
-      ignore_errors: true
-      # NOTE: The actual secret OCID lookup is done via secret name convention:
-      # {{ project }}-mysql-password
-      # Full implementation requires listing secrets by name first.
-      # This task is a placeholder — implement via oci vault secret list + get.
+
+    - name: Fetch Redis password from OCI Vault
+      ansible.builtin.shell: |
+        /root/bin/oci secrets secret-bundle get-secret-bundle-by-name \
+          --secret-name "{{ project }}-redis-password" \
+          --vault-id "{{ vault_id }}" \
+          --region "{{ region }}" \
+          --auth instance_principal \
+          --query "data.\"secret-bundle-content\".content" \
+          --raw-output | base64 -d
+      register: redis_password
+      changed_when: false
+
+    - name: Fetch OpenSearch password from OCI Vault
+      ansible.builtin.shell: |
+        /root/bin/oci secrets secret-bundle get-secret-bundle-by-name \
+          --secret-name "{{ project }}-opensearch-password" \
+          --vault-id "{{ vault_id }}" \
+          --region "{{ region }}" \
+          --auth instance_principal \
+          --query "data.\"secret-bundle-content\".content" \
+          --raw-output | base64 -d
+      register: opensearch_password
+      changed_when: false
 
     ###########################################################################
     # PHP-FPM pool configuration

@@ -21,6 +21,7 @@ runcmd:
   - |
     pip3 install pipx --quiet
     /usr/local/bin/pipx install ansible-core
+    /usr/local/bin/pipx inject ansible-core ansible
     export PATH="$PATH:/root/.local/bin"
 
   - |

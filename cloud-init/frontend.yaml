@@ -49,6 +49,8 @@ runcmd:
       -e "mysql_host=${mysql_host}" \
       -e "opensearch_fqdn=${opensearch_fqdn}" \
       -e "os_namespace=${os_namespace}" \
+      -e "vault_id=${vault_id}" \
+      -e "compartment_id=${compartment_id}" \
       2>&1 | tee -a /var/log/cloud-init-custom.log
 
 final_message: "Frontend instance initialized in ${project} (${environment})"

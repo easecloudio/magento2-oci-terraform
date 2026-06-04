@@ -33,6 +33,8 @@ resource "oci_core_instance_configuration" "this" {
           mysql_host       = oci_mysql_mysql_db_system.this.endpoints[0].hostname
           opensearch_fqdn  = oci_opensearch_opensearch_cluster.this.opensearch_fqdn
           os_namespace     = data.oci_objectstorage_namespace.this.namespace
+          vault_id         = oci_kms_vault.this.id
+          compartment_id   = local.env.oci.compartment_ocid
         }))
       }
 

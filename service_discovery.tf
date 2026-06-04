@@ -49,6 +49,22 @@ resource "oci_dns_rrset" "redis" {
   }
 }
 
+# In production, replace with a private internal OCI LB to avoid the NAT round-trip
+resource "oci_dns_rrset" "frontend" {
+  zone_name_or_id = oci_dns_zone.internal.id
+  domain          = "frontend.${local.env.brand}.internal"
+  rtype           = "A"
+  view_id         = oci_dns_view.internal.id
+  scope           = "PRIVATE"
+
+  items {
+    domain = "frontend.${local.env.brand}.internal"
+    rtype  = "A"
+    ttl    = 30
+    rdata  = oci_load_balancer_load_balancer.this.ip_address_details[0].ip_address
+  }
+}
+
 resource "oci_dns_rrset" "opensearch" {
   zone_name_or_id = oci_dns_zone.internal.id
   domain          = "opensearch.${local.env.brand}.internal"
