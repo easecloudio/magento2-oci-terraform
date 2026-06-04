@@ -107,6 +107,17 @@ resource "oci_waf_web_app_firewall_policy" "this" {
         condition_language = "JMESPATH"
       }
     }
+
+    dynamic "rules" {
+      for_each = length(local.env.waf.admin_allowed_cidrs) > 0 ? [1] : []
+      content {
+        name               = "restrict-admin-subdomain"
+        type               = "ACCESS_CONTROL"
+        action_name        = "ADMIN_BLOCK"
+        condition          = "!i_contains(${jsonencode(local.env.waf.admin_allowed_cidrs)}, http.request.ip) && http.request.headers['Host'] == '${local.admin_domain}'"
+        condition_language = "JMESPATH"
+      }
+    }
   }
 }
 

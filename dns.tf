@@ -24,6 +24,20 @@ resource "oci_dns_rrset" "apex" {
   }
 }
 
+resource "oci_dns_rrset" "admin" {
+  zone_name_or_id = oci_dns_zone.public.id
+  domain          = local.admin_domain
+  rtype           = "A"
+  scope           = "GLOBAL"
+
+  items {
+    domain = local.admin_domain
+    rtype  = "A"
+    ttl    = 300
+    rdata  = oci_load_balancer_load_balancer.this.ip_address_details[0].ip_address
+  }
+}
+
 resource "oci_dns_rrset" "www" {
   zone_name_or_id = oci_dns_zone.public.id
   domain          = "www.${local.env.domain}"
