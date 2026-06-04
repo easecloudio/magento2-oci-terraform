@@ -37,6 +37,7 @@ resource "oci_core_instance_configuration" "this" {
           compartment_id   = local.env.oci.compartment_ocid
           vcn_cidr         = local.env.vcn.cidr_block
         }))
+        ssh_authorized_keys = var.ssh_public_key != "" ? var.ssh_public_key : null
       }
 
       create_vnic_details {
