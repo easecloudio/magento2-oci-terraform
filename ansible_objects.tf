@@ -5,7 +5,7 @@
 # can download them at instance boot time via the OCI CLI with instance_principal auth.
 
 resource "oci_objectstorage_object" "ansible_playbooks" {
-  for_each   = { for f in ["frontend", "varnish"] : f => f }
+  for_each   = { for f in ["frontend", "varnish", "cron"] : f => f }
   namespace  = data.oci_objectstorage_namespace.this.namespace
   bucket     = "${local.project}-system"
   object     = "ansible/playbooks/${each.key}.yml"

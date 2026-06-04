@@ -37,7 +37,7 @@ resource "oci_core_instance_pool" "this" {
 }
 
 resource "oci_autoscaling_auto_scaling_configuration" "this" {
-  for_each             = local.env.compute
+  for_each             = { for k, v in local.env.compute : k => v if try(v.autoscaling, true) }
   compartment_id       = local.env.oci.compartment_ocid
   display_name         = "${local.project}-${each.key}-asc"
   cool_down_in_seconds = local.env.autoscaling.cooldown_in_seconds

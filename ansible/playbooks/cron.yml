@@ -1,0 +1,305 @@
+---
+# Cron playbook: installs PHP-FPM 8.2, mounts NFS exports,
+# fetches secrets from OCI Vault, configures PHP-FPM, and installs
+# system crontabs for Magento background jobs.
+# No Nginx — this instance is not traffic-facing.
+#
+# Required extra-vars:
+#   project        - e.g. "easecloud-magento"
+#   environment    - e.g. "developer"
+#   brand          - e.g. "easecloud"
+#   region         - OCI region, e.g. "us-ashburn-1"
+#   nfs_mount_ips  - JSON map of AD index (string) to NFS mount target IP (e.g. '{"0":"10.0.1.5","1":"10.0.2.5"}')
+#   mysql_host     - MySQL HeatWave endpoint hostname
+#   opensearch_fqdn - OCI OpenSearch FQDN
+#   os_namespace   - OCI Object Storage namespace
+#   vault_id       - OCI KMS Vault OCID
+#   compartment_id - OCI compartment OCID
+
+- name: Configure Magento cron (PHP-FPM + system crontabs)
+  hosts: localhost
+  become: yes
+  gather_facts: yes
+
+  vars:
+    magento_root: /var/www/magento
+    magento_user: www-data
+    magento_group: www-data
+    php_version: "8.2"
+
+  tasks:
+
+    ###########################################################################
+    # System packages
+    ###########################################################################
+
+    - name: Install prerequisite packages
+      ansible.builtin.apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+          - software-properties-common
+          - nfs-common
+          - unzip
+        state: present
+        update_cache: yes
+
+    - name: Add Ondrej PHP PPA signing key
+      ansible.builtin.apt_key:
+        url: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x14AA40EC0831756756D7F66C4F4EA0AAE5267A6C
+        state: present
+
+    - name: Add Ondrej PHP PPA repository
+      ansible.builtin.apt_repository:
+        repo: "ppa:ondrej/php"
+        state: present
+        update_cache: yes
+
+    - name: Install PHP-FPM and Magento 2 required extensions
+      ansible.builtin.apt:
+        name:
+          - "php{{ php_version }}-fpm"
+          - "php{{ php_version }}-xml"
+          - "php{{ php_version }}-mbstring"
+          - "php{{ php_version }}-intl"
+          - "php{{ php_version }}-bcmath"
+          - "php{{ php_version }}-curl"
+          - "php{{ php_version }}-gd"
+          - "php{{ php_version }}-zip"
+          - "php{{ php_version }}-mysql"
+          - "php{{ php_version }}-soap"
+          - "php{{ php_version }}-xsl"
+          - "php{{ php_version }}-sockets"
+          - "php{{ php_version }}-common"
+          - "php{{ php_version }}-redis"
+          - "php{{ php_version }}-opcache"
+        state: present
+        update_cache: yes
+
+    ###########################################################################
+    # Magento directory structure
+    ###########################################################################
+
+    - name: Create Magento root directory
+      ansible.builtin.file:
+        path: "{{ magento_root }}"
+        state: directory
+        owner: "{{ magento_user }}"
+        group: "{{ magento_group }}"
+        mode: "0755"
+
+    - name: Create Magento var directory (NFS mount point)
+      ansible.builtin.file:
+        path: "{{ magento_root }}/var"
+        state: directory
+        owner: "{{ magento_user }}"
+        group: "{{ magento_group }}"
+        mode: "0770"
+
+    - name: Create Magento pub/media directory (NFS mount point)
+      ansible.builtin.file:
+        path: "{{ magento_root }}/pub/media"
+        state: directory
+        owner: "{{ magento_user }}"
+        group: "{{ magento_group }}"
+        mode: "0770"
+
+    ###########################################################################
+    # NFS mounts
+    ###########################################################################
+
+    - name: Detect availability domain index from instance metadata
+      ansible.builtin.shell: |
+        curl -sH "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ \
+          | python3 -c "import sys,json; d=json.load(sys.stdin); ad=d['availabilityDomain']; print(str(int(ad.split(':')[-1].split('-')[-1]) - 1))"
+      register: ad_index
+      changed_when: false
+
+    - name: Set NFS mount target IP for this AD
+      ansible.builtin.set_fact:
+        nfs_ip: "{{ (nfs_mount_ips | from_json)[ad_index.stdout | trim] }}"
+
+    - name: Mount NFS var export
+      ansible.posix.mount:
+        path: "{{ magento_root }}/var"
+        src: "{{ nfs_ip }}:/var"
+        fstype: nfs
+        opts: "rw,nfsvers=4,hard,intr,rsize=65536,wsize=65536,timeo=600,retrans=2,_netdev"
+        state: mounted
+
+    - name: Mount NFS media export
+      ansible.posix.mount:
+        path: "{{ magento_root }}/pub/media"
+        src: "{{ nfs_ip }}:/media"
+        fstype: nfs
+        opts: "rw,nfsvers=4,hard,intr,rsize=65536,wsize=65536,timeo=600,retrans=2,_netdev"
+        state: mounted
+
+    ###########################################################################
+    # OCI Vault secrets
+    ###########################################################################
+
+    - name: Fetch MySQL password from OCI Vault
+      ansible.builtin.shell: |
+        /root/bin/oci secrets secret-bundle get-secret-bundle-by-name \
+          --secret-name "{{ project }}-mysql-password" \
+          --vault-id "{{ vault_id }}" \
+          --region "{{ region }}" \
+          --auth instance_principal \
+          --query "data.\"secret-bundle-content\".content" \
+          --raw-output | base64 -d
+      register: mysql_password
+      changed_when: false
+      no_log: true
+
+    - name: Fetch Redis password from OCI Vault
+      ansible.builtin.shell: |
+        /root/bin/oci secrets secret-bundle get-secret-bundle-by-name \
+          --secret-name "{{ project }}-redis-password" \
+          --vault-id "{{ vault_id }}" \
+          --region "{{ region }}" \
+          --auth instance_principal \
+          --query "data.\"secret-bundle-content\".content" \
+          --raw-output | base64 -d
+      register: redis_password
+      changed_when: false
+      no_log: true
+
+    - name: Fetch OpenSearch password from OCI Vault
+      ansible.builtin.shell: |
+        /root/bin/oci secrets secret-bundle get-secret-bundle-by-name \
+          --secret-name "{{ project }}-opensearch-password" \
+          --vault-id "{{ vault_id }}" \
+          --region "{{ region }}" \
+          --auth instance_principal \
+          --query "data.\"secret-bundle-content\".content" \
+          --raw-output | base64 -d
+      register: opensearch_password
+      changed_when: false
+      no_log: true
+
+    ###########################################################################
+    # PHP-FPM pool configuration
+    ###########################################################################
+
+    - name: Configure PHP-FPM pool for Magento
+      ansible.builtin.copy:
+        dest: "/etc/php/{{ php_version }}/fpm/pool.d/magento.conf"
+        content: |
+          [magento]
+          user = {{ magento_user }}
+          group = {{ magento_group }}
+          listen = /run/php/php{{ php_version }}-fpm-magento.sock
+          listen.owner = www-data
+          listen.group = www-data
+          listen.mode = 0660
+
+          pm = dynamic
+          pm.max_children = 50
+          pm.start_servers = 5
+          pm.min_spare_servers = 5
+          pm.max_spare_servers = 10
+          pm.max_requests = 1000
+
+          php_admin_value[error_log] = /var/log/php/magento-fpm-error.log
+          php_admin_flag[log_errors] = on
+          php_admin_value[memory_limit] = 756M
+          php_admin_value[max_execution_time] = 1800
+          php_admin_value[realpath_cache_size] = 10M
+          php_admin_value[realpath_cache_ttl] = 7200
+
+          ; Magento required settings
+          php_admin_value[upload_max_filesize] = 64M
+          php_admin_value[post_max_size] = 64M
+          php_admin_value[max_input_vars] = 10000
+          env[MAGENTO_ROOT] = {{ magento_root }}
+          env[DB_HOST] = {{ mysql_host }}
+          env[DB_PASSWORD] = {{ mysql_password.stdout }}
+          env[REDIS_PASSWORD] = {{ redis_password.stdout }}
+          env[OPENSEARCH_HOST] = {{ opensearch_fqdn }}
+          env[OPENSEARCH_PASSWORD] = {{ opensearch_password.stdout }}
+          env[OCI_REGION] = {{ region }}
+          env[OCI_NAMESPACE] = {{ os_namespace }}
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart PHP-FPM
+      no_log: true
+
+    - name: Remove default PHP-FPM www pool
+      ansible.builtin.file:
+        path: "/etc/php/{{ php_version }}/fpm/pool.d/www.conf"
+        state: absent
+      notify: Restart PHP-FPM
+
+    - name: Create PHP log directory
+      ansible.builtin.file:
+        path: /var/log/php
+        state: directory
+        owner: "{{ magento_user }}"
+        group: "{{ magento_group }}"
+        mode: "0755"
+
+    ###########################################################################
+    # Services
+    ###########################################################################
+
+    - name: Enable and start PHP-FPM
+      ansible.builtin.systemd:
+        name: "php{{ php_version }}-fpm"
+        enabled: yes
+        state: started
+
+    ###########################################################################
+    # Magento log directory
+    ###########################################################################
+
+    - name: Create Magento log directory
+      ansible.builtin.file:
+        path: /var/log/magento
+        state: directory
+        owner: "{{ magento_user }}"
+        group: "{{ magento_group }}"
+        mode: "0755"
+
+    ###########################################################################
+    # Magento cron jobs
+    ###########################################################################
+
+    - name: Install Magento cron
+      ansible.builtin.cron:
+        name: "magento-cron"
+        minute: "*"
+        hour: "*"
+        day: "*"
+        month: "*"
+        weekday: "*"
+        user: www-data
+        job: "/usr/bin/php /var/www/magento/bin/magento cron:run >> /var/log/magento/cron.log 2>&1"
+
+    - name: Install Magento consumers cron
+      ansible.builtin.cron:
+        name: "magento-consumers"
+        minute: "*/5"
+        user: www-data
+        job: "/usr/bin/php /var/www/magento/bin/magento cron:run --group=consumers >> /var/log/magento/cron.log 2>&1"
+
+    ###########################################################################
+    # TODO: Magento code deployment
+    # The application code (composer install, bin/magento setup:upgrade, etc.)
+    # is NOT handled here. Code deployment is a separate CI/CD concern and
+    # should be triggered after infrastructure provisioning is complete.
+    # Suggested approach: pull a release artifact from OCI Object Storage
+    # ({{ project }}-system bucket) and run bin/magento setup:install with
+    # the secrets fetched above.
+    ###########################################################################
+
+  handlers:
+
+    - name: Restart PHP-FPM
+      ansible.builtin.systemd:
+        name: "php{{ php_version }}-fpm"
+        state: restarted
