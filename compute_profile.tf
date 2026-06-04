@@ -29,7 +29,7 @@ resource "oci_core_instance_configuration" "this" {
           environment     = local.environment
           brand           = local.env.brand
           region          = local.env.oci.region
-          nfs_mount_ip    = data.oci_core_private_ip.nfs_mount_target.ip_address
+          nfs_mount_ips   = jsonencode(local.nfs_mount_ips)
           mysql_host      = oci_mysql_mysql_db_system.this.endpoints[0].hostname
           opensearch_fqdn = oci_opensearch_opensearch_cluster.this.opensearch_fqdn
           os_namespace    = data.oci_objectstorage_namespace.this.namespace

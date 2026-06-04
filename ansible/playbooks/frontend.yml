@@ -8,7 +8,7 @@
 #   environment    - e.g. "developer"
 #   brand          - e.g. "easecloud"
 #   region         - OCI region, e.g. "us-ashburn-1"
-#   nfs_mount_ip   - IP address of the OCI File Storage mount target
+#   nfs_mount_ips  - JSON map of AD index (string) to NFS mount target IP (e.g. '{"0":"10.0.1.5","1":"10.0.2.5"}')
 #   mysql_host     - MySQL HeatWave endpoint hostname
 #   opensearch_fqdn - OCI OpenSearch FQDN
 #   os_namespace   - OCI Object Storage namespace
@@ -116,10 +116,21 @@
     # NFS mounts
     ###########################################################################
 
+    - name: Detect availability domain index from instance metadata
+      ansible.builtin.shell: |
+        curl -sH "Authorization: Bearer Oracle" http://169.254.169.254/opc/v2/instance/ \
+          | python3 -c "import sys,json; d=json.load(sys.stdin); ad=d['availabilityDomain']; print(ad.split(':')[-1].replace('AD-','')[-1])"
+      register: ad_index
+      changed_when: false
+
+    - name: Set NFS mount target IP for this AD
+      ansible.builtin.set_fact:
+        nfs_ip: "{{ (nfs_mount_ips | from_json)[ad_index.stdout] }}"
+
     - name: Mount NFS var export
       ansible.posix.mount:
         path: "{{ magento_root }}/var"
-        src: "{{ nfs_mount_ip }}:/var"
+        src: "{{ nfs_ip }}:/var"
         fstype: nfs
         opts: "rw,hard,intr,rsize=65536,wsize=65536,timeo=600,retrans=2,_netdev"
         state: mounted
@@ -127,7 +138,7 @@
     - name: Mount NFS media export
       ansible.posix.mount:
         path: "{{ magento_root }}/pub/media"
-        src: "{{ nfs_mount_ip }}:/media"
+        src: "{{ nfs_ip }}:/media"
         fstype: nfs
         opts: "rw,hard,intr,rsize=65536,wsize=65536,timeo=600,retrans=2,_netdev"
         state: mounted

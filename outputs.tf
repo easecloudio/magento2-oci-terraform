@@ -35,8 +35,8 @@ output "opensearch_endpoint" {
 }
 
 output "nfs_mount_target_ip" {
-  description = "Private IP address of the OCI File Storage mount target"
-  value       = data.oci_core_private_ip.nfs_mount_target.ip_address
+  description = "Private IPs of the OCI File Storage mount targets keyed by AD index"
+  value       = local.nfs_mount_ips
 }
 
 output "project" {

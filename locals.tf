@@ -31,6 +31,8 @@ locals {
 
   private_subnet_cidrs = [for i in range(local.env.vcn.availability_domains_qty) : cidrsubnet(local.env.vcn.cidr_block, 4, i + 8)]
 
+  nfs_mount_ips = { for i in range(local.env.vcn.availability_domains_qty) : tostring(i) => data.oci_core_private_ip.nfs_mount_target[i].ip_address }
+
   pool_lb_configs = {
     varnish = [
       { lb_id = oci_load_balancer_load_balancer.this.id, backend_set_name = oci_load_balancer_backend_set.varnish.name, port = 80 }

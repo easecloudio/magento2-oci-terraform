@@ -46,7 +46,7 @@ runcmd:
       -e "environment=${environment}" \
       -e "brand=${brand}" \
       -e "region=${region}" \
-      -e "nfs_mount_ip=${nfs_mount_ip}" \
+      -e "nfs_mount_ips=${nfs_mount_ips}" \
       -e "mysql_host=${mysql_host}" \
       -e "opensearch_fqdn=${opensearch_fqdn}" \
       -e "os_namespace=${os_namespace}" \

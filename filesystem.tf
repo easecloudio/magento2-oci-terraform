@@ -2,6 +2,7 @@
 ///////////////////////////////////////////////////////////[ FILE STORAGE (NFS) ]/////////////////////////////////////////////////////
 
 resource "oci_file_storage_file_system" "this" {
+  # Single file system — it is regional; mount targets are per-AD
   compartment_id      = local.env.oci.compartment_ocid
   availability_domain = data.oci_identity_availability_domains.this.availability_domains[0].name
   display_name        = "${local.project}-fss"
@@ -9,27 +10,41 @@ resource "oci_file_storage_file_system" "this" {
 }
 
 resource "oci_file_storage_mount_target" "this" {
+  count               = local.env.vcn.availability_domains_qty
   compartment_id      = local.env.oci.compartment_ocid
-  availability_domain = data.oci_identity_availability_domains.this.availability_domains[0].name
-  subnet_id           = oci_core_subnet.private[0].id
-  display_name        = "${local.project}-mount-target"
+  availability_domain = data.oci_identity_availability_domains.this.availability_domains[count.index].name
+  subnet_id           = oci_core_subnet.private[count.index].id
+  display_name        = "${local.project}-mount-target-${count.index}"
   nsg_ids             = [oci_core_network_security_group.nfs.id]
   freeform_tags       = local.default_tags
 }
 
 resource "oci_file_storage_export_set" "this" {
-  mount_target_id = oci_file_storage_mount_target.this.id
-  display_name    = "${local.project}-export-set"
+  count           = local.env.vcn.availability_domains_qty
+  mount_target_id = oci_file_storage_mount_target.this[count.index].id
+  display_name    = "${local.project}-export-set-${count.index}"
 }
 
 resource "oci_file_storage_export" "this" {
-  for_each       = local.env.file_storage.mounts
-  export_set_id  = oci_file_storage_mount_target.this.export_set_id
+  for_each = {
+    for pair in flatten([
+      for mt_idx in range(local.env.vcn.availability_domains_qty) : [
+        for mount_key, mount_val in local.env.file_storage.mounts : {
+          key       = "${mt_idx}-${mount_key}"
+          mt_idx    = mt_idx
+          mount_key = mount_key
+          mount_val = mount_val
+        }
+      ]
+    ]) : pair.key => pair
+  }
+
+  export_set_id  = oci_file_storage_export_set.this[each.value.mt_idx].export_set_id
   file_system_id = oci_file_storage_file_system.this.id
-  path           = "/${each.key}"
+  path           = "/${each.value.mount_key}"
 
   dynamic "export_options" {
-    for_each = local.private_subnet_cidrs
+    for_each = toset([cidrsubnet(local.env.vcn.cidr_block, 4, each.value.mt_idx + 8)])
     content {
       source                         = export_options.value
       access                         = "READ_WRITE"
