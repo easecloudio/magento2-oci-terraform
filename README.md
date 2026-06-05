@@ -1,10 +1,41 @@
 # Magento 2 — OCI Terraform
 
-Production-ready, auto-scaling Magento 2 infrastructure on Oracle Cloud Infrastructure using Terraform and Ampere A1 ARM instances. Config-file driven — one YAML per environment, no `.tfvars` files.
-
 [![Terraform](https://img.shields.io/badge/Terraform-≥1.9-7B42BC)](https://www.terraform.io)
 [![OCI Provider](https://img.shields.io/badge/OCI_Provider-6.37-F80000)](https://registry.terraform.io/providers/oracle/oci)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue)](LICENSE)
+[![GitHub](https://img.shields.io/badge/GitHub-easecloudio%2Fmagento2--oci--terraform-blue)](https://github.com/easecloudio/magento2-oci-terraform)
+
+Production-ready, auto-scaling Magento 2 infrastructure on Oracle Cloud Infrastructure using Terraform and Ampere A1 ARM instances. Config-file driven — one YAML per environment, no `.tfvars` files.
+
+**Developed and maintained by [EaseCloud](https://easecloud.io)** — cloud-native infrastructure, AI integrations, and Magento platform engineering.
+
+---
+
+## Quick Start
+
+```bash
+# 1. Clone
+git clone https://github.com/easecloudio/magento2-oci-terraform.git
+cd magento2-oci-terraform
+
+# 2. Configure
+cp developer.config.yaml myproject.config.yaml
+# Edit: set brand, codename, domain, admin_email, oci.tenancy_ocid, oci.compartment_ocid
+
+# 3. Initialize and create workspace (name must match config file prefix)
+terraform init
+terraform workspace new developer
+
+# 4. Plan and apply
+terraform plan -out developer.plan
+terraform apply developer.plan
+```
+
+After apply, view all service endpoints:
+
+```bash
+terraform output
+```
 
 ---
 
@@ -90,34 +121,6 @@ See [docs/deployment.md](docs/deployment.md) for full IAM policy requirements.
 
 ---
 
-## Quick start
-
-```bash
-# 1. Clone
-git clone https://github.com/easecloudio/magento2-oci-terraform.git
-cd magento2-oci-terraform
-
-# 2. Configure
-cp developer.config.yaml myproject.config.yaml
-# Edit: set brand, codename, domain, admin_email, oci.tenancy_ocid, oci.compartment_ocid
-
-# 3. Initialize and create workspace (name must match config file prefix)
-terraform init
-terraform workspace new developer
-
-# 4. Plan and apply
-terraform plan -out developer.plan
-terraform apply developer.plan
-```
-
-After apply, view all service endpoints:
-
-```bash
-terraform output
-```
-
----
-
 ## Configuration
 
 All settings live in `<workspace>.config.yaml`. Three files ship with this repo:
@@ -163,7 +166,7 @@ waf:
 
 ---
 
-## Input variables
+## Input Variables
 
 Passed via `-var` or `TF_VAR_*` environment variables:
 
@@ -190,7 +193,7 @@ terraform output bastion_private_ip    # OCI Bastion endpoint IP
 
 ---
 
-## Multi-environment workflow
+## Multi-environment Workflow
 
 ```bash
 # Create all three environments
@@ -208,7 +211,7 @@ Each workspace maintains its own Terraform state and reads its own config file. 
 
 ---
 
-## Accessing instances (no public SSH)
+## Accessing Instances (No Public SSH)
 
 Instances are in private subnets with no public IP. Two methods to access them:
 
@@ -242,7 +245,7 @@ oci instance-agent command create \
 
 ---
 
-## Security model
+## Security Model
 
 - **No public instance IPs** — all compute in private subnets behind a NAT gateway
 - **NSGs per service** — each tier (LB, compute, DB, Redis, NFS, OpenSearch) has its own Network Security Group with minimum-required rules
@@ -272,7 +275,7 @@ Eight OCI Monitoring alarms send email to `admin_email` via ONS:
 
 ---
 
-## Repository layout
+## Repository Layout
 
 ```
 .
@@ -312,6 +315,37 @@ Pull requests are welcome. Please:
 5. Update `docs/configuration.md` if you add new config keys
 
 The CI pipeline runs `tflint` and `checkov` on every pull request.
+
+---
+
+## Bug Reports & Issues
+
+Found a bug or have a feature request?
+
+🐛 [Create a GitHub issue](https://github.com/easecloudio/magento2-oci-terraform/issues)
+
+Please include:
+- Terraform version and OCI provider version
+- Workspace / environment (developer / staging / production)
+- Steps to reproduce
+- Expected vs actual behavior
+- Relevant `terraform plan` or `terraform apply` output
+
+---
+
+## About EaseCloud
+
+EaseCloud is a cloud consulting and solutions company specializing in:
+
+- Cloud-native infrastructure on AWS, OCI, GCP, and Azure
+- Magento 2 platform engineering and performance optimization
+- AI and automation integrations
+- DevOps, IaC, and managed infrastructure
+
+We built this project to share production-grade Magento infrastructure patterns with the open-source community. If your team is running Magento at scale or migrating to OCI, [get in touch](https://easecloud.io) — we provide consulting, customization, and managed support.
+
+📧 [support@easecloud.io](mailto:support@easecloud.io)
+🌐 [easecloud.io](https://easecloud.io)
 
 ---
 
